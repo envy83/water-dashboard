@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>해외 5개국 수질 통합 대시보드</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', 'Inter', sans-serif;
+            background-color: #f1f5f9; /* slate-100 */
+        }
+        .view {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            border: 1px solid #e2e8f0; /* slate-200 */
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 300px;
+        }
+        /* 국가별 상세 보고서 스타일 */
+        .report-container { background-color: #f0f2f5; }
+        .report-container .card { padding: 1.5rem; }
+        .report-container .section-title { font-size: 2.25rem; font-weight: 900; text-align: center; color: #003f5c; margin-bottom: 1rem; }
+        .report-container .section-subtitle { text-align: center; color: #4a5568; margin-bottom: 3rem; max-width: 48rem; margin-left: auto; margin-right: auto; }
+        .report-container h1, .report-container h2, .report-container h3, .report-container h4 {
+            font-family: 'Noto Sans KR', 'Inter', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header id="main-header" class="bg-white rounded-xl p-6 mb-12 shadow-md flex justify-between items-center sticky top-4 z-50">
+            <div>
+                <h1 id="header-title" class="text-2xl sm:text-3xl font-bold text-emerald-600">해외 5개국 수질 통합 대시보드</h1>
+                <p id="header-subtitle" class="text-slate-500 mt-1">법인 보유국 수질 데이터 통합 관리 및 비교 분석</p>
+            </div>
+            <button id="homeButton" class="hidden bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-lg transition-colors duration-300 items-center gap-2 flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                <span class="hidden sm:inline">전체 요약 보기</span>
+            </button>
+        </header>
+
+        <main id="main-container">
+            <div id="global-dashboard-view" class="view">
+                <section class="bg-white p-6 rounded-xl shadow-md border border-slate-200 mb-8">
+                    <div>
+                        <h3 class="text-lg font-bold mb-3 text-slate-700">데이터 소스</h3>
+                        <ul class="text-sm text-slate-600 space-y-2 list-disc list-inside">
+                            <li><strong>종합 데이터:</strong> <a href="https://washdata.org/" target="_blank" class="text-blue-600 hover:underline">WHO/UNICEF JMP</a>, <a href="https://gemstat.org/" target="_blank" class="text-blue-600 hover:underline">GEMStat</a>, <a href="http://www.oecd.org" target="_blank" class="text-blue-600 hover:underline">OECD</a>, <a href="https://www.ewg.org/tapwater/" target="_blank" class="text-blue-600 hover:underline">EWG</a></li>
+                            <li><strong>국가별 데이터:</strong> 각국 환경부(EPA, DOE), 수자원 관리 기관, 보건부(Kemenkes) 공식 발표 자료 및 보고서</li>
+                            <li><strong>업데이트 주기:</strong> 2024-2025년 데이터 기반, 연간 업데이트</li>
+                        </ul>
+                    </div>
+                </section>
+                <section>
+                    <h2 class="text-2xl font-bold text-slate-700 mb-4">국가별 수질 현황 요약</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div id="card-usa" class="card p-6 cursor-pointer flex flex-col justify-between">
+                            <div><h3 class="text-lg font-bold mb-3">🇺🇸 미국</h3><div class="space-y-2 text-sm"><div class="flex justify-between items-center bg-red-50 p-2 rounded-lg"><span class="font-semibold text-red-700">PFAS 오염 확인 지점</span><span class="font-bold text-red-600">9,323+</span></div><div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg"><span class="font-semibold text-slate-600">규제 오염물질 수</span><span class="font-bold">200+</span></div></div></div>
+                            <p class="text-center text-xs text-blue-600 mt-4 font-semibold">클릭하여 상세 보고서 보기 &rarr;</p>
+                        </div>
+                        <div id="card-malaysia" class="card p-6 cursor-pointer flex flex-col justify-between">
+                            <div><h3 class="text-lg font-bold mb-3">🇲🇾 말레이시아</h3><div class="space-y-2 text-sm"><div class="flex justify-between items-center bg-red-50 p-2 rounded-lg"><span class="font-semibold text-red-700">오염된 강 비율</span><span class="font-bold text-red-600">40%</span></div><div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg"><span class="font-semibold text-slate-600">'안전한 물' 이용률</span><span class="font-bold">93.8%</span></div></div></div>
+                            <p class="text-center text-xs text-blue-600 mt-4 font-semibold">클릭하여 상세 보고서 보기 &rarr;</p>
+                        </div>
+                        <div id="card-indonesia" class="card p-6 cursor-pointer flex flex-col justify-between">
+                            <div><h3 class="text-lg font-bold mb-3">🇮🇩 인도네시아</h3><div class="space-y-2 text-sm"><div class="flex justify-between items-center bg-red-50 p-2 rounded-lg"><span class="font-semibold text-red-700">대장균 오염 식수</span><span class="font-bold text-red-600">70%</span></div><div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg"><span class="font-semibold text-slate-600">'안전한 물' 이용률</span><span class="font-bold">11.8%</span></div></div></div>
+                            <p class="text-center text-xs text-blue-600 mt-4 font-semibold">클릭하여 상세 보고서 보기 &rarr;</p>
+                        </div>
+                        <div id="card-vietnam" class="card p-6 cursor-pointer flex flex-col justify-between">
+                            <div><h3 class="text-lg font-bold mb-3">🇻🇳 베트남</h3><div class="space-y-2 text-sm"><div class="flex justify-between items-center bg-red-50 p-2 rounded-lg"><span class="font-semibold text-red-700">연간 수질오염 사망자</span><span class="font-bold text-red-600">9,000명</span></div><div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg"><span class="font-semibold text-slate-600">'안전한 물' 이용률</span><span class="font-bold">58%</span></div></div></div>
+                            <p class="text-center text-xs text-blue-600 mt-4 font-semibold">클릭하여 상세 보고서 보기 &rarr;</p>
+                        </div>
+                        <div id="card-thailand" class="card p-6 cursor-pointer flex flex-col justify-between">
+                            <div><h3 class="text-lg font-bold mb-3">🇹🇭 태국</h3><div class="space-y-2 text-sm"><div class="flex justify-between items-center bg-red-50 p-2 rounded-lg"><span class="font-semibold text-red-700">비소 오염 (최대)</span><span class="font-bold text-red-600">기준치 49배</span></div><div class="flex justify-between items-center bg-slate-50 p-2 rounded-lg"><span class="font-semibold text-slate-600">'안전한 물' 이용률</span><span class="font-bold">49.5%</span></div></div></div>
+                            <p class="text-center text-xs text-blue-600 mt-4 font-semibold">클릭하여 상세 보고서 보기 &rarr;</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <div id="malaysia-view" class="view hidden report-container"></div>
+            <div id="indonesia-view" class="view hidden report-container"></div>
+            <div id="vietnam-view" class="view hidden report-container"></div>
+            <div id="usa-view" class="view hidden report-container"></div>
+            <div id="thailand-view" class="view hidden report-container"></div>
+        </main>
+    </div>
+
+    <template id="usa-template">
+        <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+
+            <header class="text-center mb-12">
+                <h1 class="text-4xl md:text-5xl font-black text-brand-dark-blue mb-4">🌊 미국 수질 현황 종합 보고서</h1>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">2024년 기준 미국 전역의 수질 데이터를 분석하고, 주요 오염 현황과 규제 동향, 그리고 미래 전망을 종합적으로 제시합니다.</p>
+            </header>
+    
+            <section class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+                <div class="bg-white rounded-lg shadow-xl p-6 text-center transition-transform transform hover:-translate-y-1">
+                    <div class="text-5xl font-bold text-brand-dark-blue">50,000+</div>
+                    <div class="mt-2 font-semibold text-gray-700">분석 대상 수도 시스템</div>
+                    <p class="text-sm text-gray-500 mt-2">2021-2023년 기간 동안 약 5만개의 공공 수도 시스템에서 수질 데이터를 수집하여 종합 분석을 수행했습니다.</p>
+                </div>
+                <div class="bg-white rounded-lg shadow-xl p-6 text-center transition-transform transform hover:-translate-y-1">
+                    <div class="text-5xl font-bold text-brand-purple">9,323</div>
+                    <div class="mt-2 font-semibold text-gray-700">PFAS 오염 확인 지점</div>
+                    <p class="text-sm text-gray-500 mt-2">전국 50개 주 전역에서 '영원한 화학물질'로 불리는 과불화화합물(PFAS) 오염이 확인되었습니다.</p>
+                </div>
+                <div class="bg-white rounded-lg shadow-xl p-6 text-center transition-transform transform hover:-translate-y-1">
+                    <div class="text-5xl font-bold text-brand-magenta">수백 종류</div>
+                    <div class="mt-2 font-semibold text-gray-700">검출된 오염물질</div>
+                    <p class="text-sm text-gray-500 mt-2">유해화학물질, 중금속, 방사성 물질 등 인체에 유해한 다양한 오염물질이 전국적으로 검출되었습니다.</p>
+                </div>
+            </section>
+    
+            <section class="bg-white rounded-lg shadow-xl p-6 md:p-8 mb-12">
+                <h2 class="text-3xl font-bold text-center text-brand-dark-blue mb-2">주요 오염물질 상세 분석</h2>
+                <p class="text-center text-gray-600 max-w-2xl mx-auto mb-8">EWG의 최신 분석에 따르면, 수백만 명의 미국인이 과학적 안전 기준을 훨씬 상회하는 유해물질에 오염된 식수를 소비하고 있습니다. 아래는 주요 우려 물질에 대한 심층 분석입니다.</p>
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 items-center">
+                    <div class="lg:col-span-3">
+                        <div class="chart-container">
+                            <canvas id="contaminantsChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-2 space-y-4">
+                        <div class="p-4 rounded-lg bg-red-50 border border-red-200">
+                            <h3 class="font-bold text-brand-red">🧪 PFAS (과불화화합물)</h3>
+                            <ul class="text-sm text-gray-700 mt-2 list-disc list-inside space-y-1">
+                                <li>2024년 4월, EPA는 PFOA와 PFOS를 슈퍼펀드법상 유해물질로 지정했습니다.</li>
+                                <li>이를 통해 정화 작업 가속화 및 오염 유발자에 대한 책임 추궁이 강화되었습니다.</li>
+                                <li>전국 50개 주, 9,323개 지점에서 오염이 확인되어 광범위한 대책이 요구됩니다.</li>
+                            </ul>
+                            <button onclick="openModal()" class="mt-4 w-full bg-brand-red text-white py-2 rounded-lg hover:bg-red-700 transition font-bold">PFAS 심층 정보 보기</button>
+                        </div>
+                        <div class="p-4 rounded-lg bg-purple-50 border-purple-200">
+                            <h3 class="font-bold text-brand-purple">🏭 중금속 (납, 비소 등)</h3>
+                            <ul class="text-sm text-gray-700 mt-2 list-disc list-inside space-y-1">
+                                <li>납, 구리, 비소 등 주요 중금속이 다수 시스템에서 검출되었습니다.</li>
+                                <li>주요 원인으로 수십 년 된 노후 배관 시설이 지목되며, 이는 인프라 교체의 시급성을 보여줍니다.</li>
+                                <li>신경계, 신장 등 인체에 직접적인 영향을 미칠 수 있어 국민 건강에 큰 위협이 됩니다.</li>
+                            </ul>
+                        </div>
+                        <div class="p-4 rounded-lg bg-orange-50 border-orange-200">
+                            <h3 class="font-bold text-brand-orange">☢️ 방사성 물질</h3>
+                            <ul class="text-sm text-gray-700 mt-2 list-disc list-inside space-y-1">
+                                <li>지질학적 특성에 따른 자연 발생 및 원자력 시설 등 인공적 요인으로 인해 검출됩니다.</li>
+                                <li>지역별 편차가 크지만, 특정 지역에서는 높은 농도를 보여 집중 관리가 필요합니다.</li>
+                                <li>장기간 노출될 경우 암 발병률을 높이는 등 심각한 건강 위험을 초래할 수 있습니다.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <section class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+                <div class="bg-white rounded-lg shadow-xl p-6 md:p-8">
+                    <h3 class="text-2xl font-bold text-brand-dark-blue mb-4">🗺️ 지역별 수질 현황 및 대응</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-left text-gray-500">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3">지역</th>
+                                    <th scope="col" class="px-6 py-3">주요 오염물질</th>
+                                    <th scope="col" class="px-6 py-3">위험도 및 개선 조치</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="bg-white border-b"><td class="px-6 py-4 font-medium text-gray-900">동부</td><td class="px-6 py-4">납, 구리, 염소 부산물</td><td class="px-6 py-4"><span class="font-bold text-red-600">높음:</span> 노후 배관 교체</td></tr>
+                                <tr class="bg-gray-50 border-b"><td class="px-6 py-4 font-medium text-gray-900">서부</td><td class="px-6 py-4">비소, 불소, 농약</td><td class="px-6 py-4"><span class="font-bold text-yellow-600">보통:</span> 농업 오염원 관리</td></tr>
+                                <tr class="bg-white border-b"><td class="px-6 py-4 font-medium text-gray-900">중부</td><td class="px-6 py-4">질산염, 인산염, PFAS</td><td class="px-6 py-4"><span class="font-bold text-red-600">높음:</span> 산업 오염원 규제</td></tr>
+                                 <tr class="bg-gray-50"><td class="px-6 py-4 font-medium text-gray-900">남부</td><td class="px-6 py-4">미생물, 유기물</td><td class="px-6 py-4"><span class="font-bold text-yellow-600">보통:</span> 기후 변화 대응</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow-xl p-6 md:p-8">
+                    <h3 class="text-2xl font-bold text-brand-dark-blue mb-4">📊 지역별 오염물질 위험도 비교</h3>
+                    <div class="chart-container" style="height: 300px;">
+                        <canvas id="regionalContaminantsChart"></canvas>
+                    </div>
+                </div>
+            </section>
+            
+            <section class="bg-white rounded-lg shadow-xl p-6 md:p-8 mb-12">
+                <h2 class="text-3xl font-bold text-center text-brand-dark-blue mb-8">📜 규제 및 정책 현황</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                    <div>
+                        <p class="text-gray-600 mb-4">EPA는 200개 이상의 물질을 규제하고 있으며, 연방-주-지역으로 이어지는 다층적 관리 체계를 통해 국민의 식수 안전을 확보하고자 노력하고 있습니다.</p>
+                        <ul class="space-y-3 list-disc list-inside text-gray-700">
+                            <li><strong>안전 기준 강화:</strong> 200개 이상 규제 대상 물질에 더해, PFAS 등 신규 유해물질을 지속적으로 추가하여 음용수 기준(MCL)을 설정합니다.</li>
+                            <li><strong>다층적 검사 체계:</strong> 연방(EPA)-주 정부-지역 수도청으로 이어지는 관리 체계를 통해 정기적 수질 검사와 독립적 제3자 검증을 실시합니다.</li>
+                            <li><strong>투명성 확보:</strong> 모든 수도 시스템은 연간 소비자 신뢰 보고서(CCR)를 발행하여 수질 정보를 대중에게 의무적으로 공개해야 합니다.</li>
+                            <li><strong>예산 및 투자:</strong> 인프라 법안 등을 통해 노후 시설 교체, 신규 정수 기술 연구, 전문 인력 양성, 응급 대응 체계 구축에 대규모 예산을 투입합니다.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-brand-dark-blue mb-4 text-center">💰 수질 개선 투자 예산 분배 (추정)</h3>
+                        <div class="chart-container" style="height: 300px;">
+                            <canvas id="investmentDoughnutChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <section class="mb-12">
+                <h2 class="text-3xl font-bold text-center text-brand-dark-blue mb-8">🔧 개선 방안 및 권고사항</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                     <div class="bg-white rounded-lg shadow-xl p-6"><h3 class="font-bold text-xl text-brand-purple mb-3">🏗️ 인프라 개선</h3><p class="font-semibold text-sm">단기 과제</p><ul class="list-disc list-inside text-sm text-gray-600 mb-3"><li>20년 이상 노후 상수도관 교체 우선순위 지정 및 실행</li><li>기존 정수장에 고도 정수 처리 시설(AOP) 도입</li><li>주요 취수원에 실시간 수질 모니터링 시스템 구축</li></ul><p class="font-semibold text-sm">장기 과제</p><ul class="list-disc list-inside text-sm text-gray-600"><li>AI와 빅데이터 기반의 스마트 워터 그리드 시스템 도입</li><li>에너지 효율적인 친환경 정수 기술(예: 막분리) 적용 확대</li><li>예측 기반의 선제적 유지보수(Preventive Maintenance) 체계 구축</li></ul></div>
+                    <div class="bg-white rounded-lg shadow-xl p-6"><h3 class="font-bold text-xl text-brand-purple mb-3">🏛️ 정책 개선</h3><p class="font-semibold text-sm">규제 강화</p><ul class="list-disc list-inside text-sm text-gray-600 mb-3"><li>신규 미량 유해물질에 대한 음용수 기준(MCL) 설정 가속화</li><li>산업시설 및 농경지의 오염원 관리 책임 강화</li><li>수질 기준 위반 시 처벌 수위 상향 및 집행 강화</li></ul><p class="font-semibold text-sm">지원 확대</p><ul class="list-disc list-inside text-sm text-gray-600"><li>재정 및 기술력이 부족한 중소 수도청에 대한 연방정부 지원 확대</li><li>저소득층 및 유색인종 거주 등 환경정의(EJ) 취약 지역 우선 투자</li><li>국제기구 및 타 국가와의 수질 관리 기술 및 정책 협력 강화</li></ul></div>
+                    <div class="bg-white rounded-lg shadow-xl p-6"><h3 class="font-bold text-xl text-brand-purple mb-3">🔬 기술 혁신</h3><p class="font-semibold text-sm">첨단 기술 도입</p><ul class="list-disc list-inside text-sm text-gray-600 mb-3"><li>AI 기반 수질 오염 예측 및 확산 시뮬레이션 시스템 개발</li><li>IoT 센서 네트워크를 통한 전국 단위의 실시간 수질 데이터 수집</li><li>나노 기술을 이용한 고도화된 막분리(Membrane) 기술 상용화</li></ul><p class="font-semibold text-sm">연구 개발</p><ul class="list-disc list-inside text-sm text-gray-600"><li>현장에서 즉시 분석 가능한 신규 오염물질 초고속 검출 기술</li><li>에너지 소비를 최소화하는 경제적인 오염물질 처리 기술 개발</li><li>처리된 물의 안전한 재활용 및 재이용 기술 수준 향상</li></ul></div>
+                </div>
+                <div class="mt-8 bg-white rounded-lg shadow-xl p-6 md:p-8">
+                    <h3 class="text-2xl font-bold text-brand-dark-blue mb-4 text-center">📈 개선 과제별 예상 효과 비교</h3>
+                    <div class="chart-container" style="height: 350px;">
+                        <canvas id="improvementImpactChart"></canvas>
+                    </div>
+                </div>
+            </section>
+    
+            <footer class="bg-brand-dark-blue text-white rounded-lg shadow-xl p-8">
+                 <h2 class="text-3xl font-bold text-center text-white mb-4">결론 및 전망</h2>
+                 <p class="text-center text-gray-300 max-w-3xl mx-auto mb-8">미국 수질 관리의 핵심 과제는 PFAS와 같은 신규 오염물질에 대한 체계적 대응과 국가 전반에 걸친 노후 인프라의 전면적 개선입니다. EPA의 적극적인 규제 강화, 기술 혁신을 위한 R&D 투자, 그리고 인프라 법안을 통한 지속적인 재정 지원은 향후 미국 전역의 수질 개선에 대한 긍정적 전망을 제시합니다.</p>
+                 <div class="max-w-4xl mx-auto p-4 rounded-lg">
+                    <h3 class="text-xl font-semibold text-center text-white mb-4">향후 5년간 주요 과제 개선 전망</h3>
+                    <div class="chart-container" style="height: 250px;">
+                        <canvas id="finalOutlookChart"></canvas>
+                    </div>
+                 </div>
+            </footer>
+    
+            <section class="mt-8 bg-white rounded-lg shadow-xl p-6 md:p-8">
+                <h2 class="text-2xl font-bold text-brand-dark-blue mb-4">참고문헌</h2>
+                <ul class="list-disc list-inside space-y-2 text-gray-700 text-sm">
+                    <li>U.S. Environmental Protection Agency (EPA). (2024). *National Water Quality Inventory: Report to Congress.*</li>
+                    <li>Environmental Working Group (EWG). (2024). *Tap Water Database.*</li>
+                    <li>U.S. Environmental Protection Agency (EPA). (2023). *Unregulated Contaminant Monitoring Rule (UCMR).*</li>
+                    <li>American Water Works Association (AWWA). (2024). *State of the Water Industry Report.*</li>
+                    <li>The Texas Tribune - "‘Forever chemicals’ are in Texas drinking water..."</li>
+                </ul>
+            </section>
+        </div>
+    
+        <div id="pfasModal" class="modal-overlay" onclick="closeModal()">
+            <div class="modal-content" onclick="event.stopPropagation()">
+                <span class="modal-close" onclick="closeModal()">&times;</span>
+                
+                <header class="text-center mb-8">
+                    <h1 class="text-3xl md:text-4xl font-black text-[#003f5c] mb-4">PFAS 수질 이슈 심층 분석</h1>
+                    <p class="text-md text-gray-600 max-w-3xl mx-auto">UCMR 5를 통해 전국 7,800개 수도시설의 PFAS·리튬 오염 데이터를 실시간 관리하며, PFAS는 2024년부터 법적 음용수 기준(MCL)이 적용됩니다.</p>
+                </header>
+                
+                <div class="bg-white rounded-lg shadow-xl p-6 md:p-8 mb-8">
+                    <h2 class="text-2xl font-bold text-[#003f5c] mb-4">UCMR 5 모니터링 진행 현황 (2023-2026)</h2>
+                    <p class="text-gray-600 mb-6">미국 환경보호청(EPA)은 '미규제 오염물질 모니터링 규칙 5차(UCMR 5)'에 따라 2023년부터 2025년까지 전국 수도 시스템의 신종 오염물질을 검사합니다. 이 데이터는 2026년까지 분기별로 업데이트되어 공개됩니다.</p>
+                    <div class="timeline">
+                        <div class="timeline-progress"></div>
+                        <div class="timeline-item active"><div class="timeline-dot"></div><p class="font-bold">2023</p><p class="text-sm text-gray-500">모니터링 시작</p></div>
+                        <div class="timeline-item active"><div class="timeline-dot"></div><p class="font-bold">2024</p><p class="text-sm text-gray-500">데이터 수집</p></div>
+                        <div class="timeline-item active"><div class="timeline-dot"></div><p class="font-bold">2025</p><p class="text-sm text-gray-500">데이터 수집</p></div>
+                        <div class="timeline-item"><div class="timeline-dot"></div><p class="font-bold">2026</p><p class="text-sm text-gray-500">최종 데이터 공개</p></div>
+                    </div>
+                </div>
+    
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="bg-white rounded-lg shadow-xl p-6">
+                        <h3 class="text-2xl font-bold text-[#003f5c] mb-2">누적 샘플 수 vs MCL 초과 건수</h3>
+                        <p class="text-gray-600 mb-6 text-sm">시간이 지남에 따라 샘플 분석이 누적되면서, 법적 최대 허용 기준치(MCL)를 초과하는 사례도 함께 집계되고 있습니다.</p>
+                        <div class="chart-container !h-[250px]"><canvas id="samplesVsExceedancesChart"></canvas></div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-xl p-6">
+                         <h3 class="text-xl font-bold text-center text-[#003f5c] mb-2">PFAS 검출률 변화 예측</h3>
+                         <p class="text-center text-gray-600 mb-4 text-sm">새로운 규제 시행으로 기준 초과 시스템에 대한 관리가 강화될 것입니다.</p>
+                         <div class="gauge-container !max-w-[200px]">
+                             <canvas id="pfasGaugeChart"></canvas>
+                             <div class="gauge-text text-[#ff6361]">23%</div>
+                         </div>
+                         <p class="text-center font-bold mt-2 text-sm">규제 후 목표 초과율</p>
+                    </div>
+                </div>
+                
+                <div class="mt-8 md:col-span-2 bg-white rounded-lg shadow-xl p-6 md:p-8">
+                    <h2 class="text-3xl font-bold text-center text-[#003f5c] mb-6">PFAS 규제의 전환점: 2024년 법적 기준 확립</h2>
+                    <p class="text-gray-600 mb-4 text-center">2024년 4월, EPA는 6종의 주요 PFAS에 대해 법적으로 강제되는 국가 음용수 기준(MCL)을 최종 확정했습니다.</p>
+                    <div class="w-full overflow-x-auto max-w-md mx-auto">
+                        <table class="w-full text-sm text-left text-gray-500">
+                            <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3">PFAS 종류</th>
+                                    <th scope="col" class="px-6 py-3 text-center">MCL (ppt)</th>
+                                    <th scope="col" class="px-6 py-3 text-center">MRL (ppt)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="bg-white border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">PFOA</th><td class="px-6 py-4 text-center">4.0</td><td class="px-6 py-4 text-center">4.0</td></tr>
+                                <tr class="bg-gray-50 border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">PFOS</th><td class="px-6 py-4 text-center">4.0</td><td class="px-6 py-4 text-center">4.0</td></tr>
+                                <tr class="bg-white border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">PFNA, PFHxS, GenX</th><td class="px-6 py-4 text-center">10.0</td><td class="px-6 py-4 text-center">5.0</td></tr>
+                                 <tr class="bg-gray-50 border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">Hazard Index (혼합물)</th><td class="px-6 py-4 text-center">1.0 (단위 없음)</td><td class="px-6 py-4 text-center">-</td></tr>
+                            </tbody>
+                        </table>
+                         <p class="text-xs text-gray-500 mt-2">* ppt: parts per trillion. MCL: 최대 허용 기준치, MRL: 최소 보고 수준</p>
+                    </div>
+                </div>
+    
+                <div class="mt-8 md:col-span-2 bg-white rounded-lg shadow-xl p-6 md:p-8">
+                    <h2 class="text-3xl font-bold text-center text-[#003f5c] mb-6">사례 연구: 텍사스 주 주요 위반 경향</h2>
+                    <p class="text-gray-600 max-w-3xl mx-auto text-center mb-8">텍사스는 미국에서 가장 많은 공공 수도 시스템을 보유한 주 중 하나로, 수질 위반 동향은 중요한 시사점을 제공합니다.</p>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div>
+                            <h3 class="text-xl font-bold text-[#003f5c] mb-2">연도별 납 & 비소 규정 위반</h3>
+                            <p class="text-gray-600 mb-4 text-sm">규정 강화에 따라 기준 미달 시스템 수가 일시적으로 증가하는 패턴을 보였습니다.</p>
+                            <div class="chart-container h-[250px]"><canvas id="texasViolationsChart"></canvas></div>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-[#003f5c] mb-2">시스템 규모별 위반 비율</h3>
+                            <p class="text-gray-600 mb-4 text-sm">위반 사례는 재정 및 기술력이 부족한 소규모 수도 시스템에서 더 높은 비율로 발생합니다.</p>
+                            <div class="chart-container h-[250px]"><canvas id="systemSizeViolationsChart"></canvas></div>
+                        </div>
+                         <div class="lg:col-span-2 mt-6">
+                             <h3 class="text-xl font-bold text-[#003f5c] mb-2">텍사스 주요 도시 PFAS 검출 현황</h3>
+                             <p class="text-gray-600 mb-4 text-sm">최근 EPA 데이터에 따르면 주요 도시에서 새로운 법적 기준(MCL)을 초과하는 PFAS가 검출되었습니다.</p>
+                             <div class="chart-container h-[350px]"><canvas id="texasPfasChart"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+        </div>
+    
+        <script>
+            function openModal() { document.getElementById('pfasModal').style.display = 'flex'; }
+            function closeModal() { document.getElementById('pfasModal').style.display = 'none'; }
+    
+            (function createUSACharts() {
+                const defaultChartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#4a5568', font: { family: "'Noto Sans KR', sans-serif" } } } }, scales: { y: { beginAtZero: true, ticks: { color: '#4a5568' }, grid: { color: '#e2e8f0' } }, x: { ticks: { color: '#4a5568' }, grid: { display: false } } } };
+                const colorPalette = { blue: '#003f5c', purple: '#58508d', magenta: '#bc5090', red: '#ff6361', orange: '#ffa600', lightGray: '#e2e8f0' };
+                const tooltipTitleCallback = (tooltipItems) => { const item = tooltipItems[0]; let label = item.chart.data.labels[item.dataIndex]; if (Array.isArray(label)) { return label.join(' '); } return label; };
+                
+                const contaminantsCtx = document.getElementById('contaminantsChart');
+                if(contaminantsCtx) { new Chart(contaminantsCtx, { type: 'bar', data: { labels: ['PFAS (과불화화합물)', '중금속', '방사성 물질'], datasets: [{ label: '수도 시스템 검출률 (%)', data: [85, 65, 45], backgroundColor: ['rgba(255, 99, 97, 0.6)','rgba(88, 80, 141, 0.6)','rgba(255, 166, 0, 0.6)'], borderColor: ['rgba(255, 99, 97, 1)','rgba(88, 80, 141, 1)','rgba(255, 166, 0, 1)'], borderWidth: 1 }] }, options: { ...defaultChartOptions, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { max: 100, ticks: { callback: (value) => value + '%' } } } } }); }
+                const regionalCtx = document.getElementById('regionalContaminantsChart');
+                if(regionalCtx) { new Chart(regionalCtx, { type: 'radar', data: { labels: ['PFAS', '중금속', '방사성 물질', '농약', '미생물'], datasets: [ { label: '동부', data: [7, 9, 4, 5, 6], fill: true, backgroundColor: 'rgba(255, 99, 97, 0.2)', borderColor: 'rgb(255, 99, 97)', pointBackgroundColor: 'rgb(255, 99, 97)' }, { label: '서부', data: [6, 7, 8, 9, 5], fill: true, backgroundColor: 'rgba(88, 80, 141, 0.2)', borderColor: 'rgb(88, 80, 141)', pointBackgroundColor: 'rgb(88, 80, 141)' }, { label: '중부', data: [9, 8, 5, 7, 4], fill: true, backgroundColor: 'rgba(255, 166, 0, 0.2)', borderColor: 'rgb(255, 166, 0)', pointBackgroundColor: 'rgb(255, 166, 0)' } ] }, options: { ...defaultChartOptions, scales: { r: { suggestedMin: 0, suggestedMax: 10, pointLabels: { font: { size: 12 } } } } } }); }
+                const investmentCtx = document.getElementById('investmentDoughnutChart');
+                if(investmentCtx) { new Chart(investmentCtx, { type: 'doughnut', data: { labels: ['노후 인프라 교체', '신규 기술 개발', '취약 지역 지원', '인력 양성 및 교육', '기타'], datasets: [{ label: '예산 분배 (%)', data: [45, 25, 15, 10, 5], backgroundColor: ['#003f5c', '#58508d', '#bc5090', '#ff6361', '#ffa600'] }] }, options: { ...defaultChartOptions, plugins: { legend: { position: 'bottom' } } } }); }
+                const improvementCtx = document.getElementById('improvementImpactChart');
+                if(improvementCtx) { new Chart(improvementCtx, { type: 'bar', data: { labels: ['인프라 개선', '정책 개선', '기술 혁신'], datasets: [ { label: '단기 예상 효과', data: [60, 75, 50], backgroundColor: 'rgba(88, 80, 141, 0.6)' }, { label: '장기 예상 효과', data: [90, 85, 95], backgroundColor: 'rgba(255, 99, 97, 0.6)' } ] }, options: { ...defaultChartOptions, scales: { y: { max: 100, ticks: { callback: (value) => value + '%' } } } } }); }
+                const finalOutlookCtx = document.getElementById('finalOutlookChart');
+                if(finalOutlookCtx) { new Chart(finalOutlookCtx, { type: 'bar', data: { labels: ['노후 인프라 개선', 'PFAS 관리 강화', '첨단 정수 기술 도입'], datasets: [{ label: '예상 개선율 (%)', data: [75, 85, 60], backgroundColor: ['rgba(88, 80, 141, 0.7)','rgba(188, 80, 144, 0.7)','rgba(255, 166, 0, 0.7)'], borderColor: ['rgba(88, 80, 141, 1)','rgba(188, 80, 144, 1)','rgba(255, 166, 0, 1)'], borderWidth: 1 }] }, options: { ...defaultChartOptions, plugins: { legend: { display: false } }, scales: { y: { max: 100, ticks: { color: '#e2e8f0', callback: (value) => value + '%' }, grid: { color: 'rgba(255, 255, 255, 0.2)' } }, x: { ticks: { color: '#e2e8f0' }, grid: { display: false } } } } }); }
+    
+                const samplesVsExceedancesCtx = document.getElementById('samplesVsExceedancesChart');
+                if(samplesVsExceedancesCtx) { new Chart(samplesVsExceedancesCtx, { type: 'bar', data: { labels: ['2023 Q1', '2023 Q2', '2023 Q3', '2023 Q4', '2024 Q1', '2024 Q2'], datasets: [{ type: 'bar', label: '누적 샘플 수 (만 개)', data: [20, 45, 68, 90, 115, 140], backgroundColor: colorPalette.blue, yAxisID: 'y', }, { type: 'line', label: 'MCL 초과 건수', data: [150, 320, 510, 680, 890, 1150], backgroundColor: colorPalette.red, borderColor: colorPalette.red, tension: 0.3, yAxisID: 'y1', }] }, options: { ...defaultChartOptions, scales: { y: { type: 'linear', display: true, position: 'left', title: { display: true, text: '누적 샘플 수 (만 개)', color: colorPalette.blue }, ticks: { color: colorPalette.blue } }, y1: { type: 'linear', display: true, position: 'right', title: { display: true, text: 'MCL 초과 건수', color: colorPalette.red }, ticks: { color: colorPalette.red }, grid: { drawOnChartArea: false } }, x: { ticks: { color: '#4a5568' }, grid: { display: false } } } } }); }
+                const pfasGaugeCtx = document.getElementById('pfasGaugeChart');
+                if(pfasGaugeCtx) { new Chart(pfasGaugeCtx, { type: 'doughnut', data: { labels: ['초과율', '정상'], datasets: [{ data: [23, 77], backgroundColor: [colorPalette.red, colorPalette.lightGray], borderColor: ['#ffffff', '#ffffff'], borderWidth: 2 }] }, options: { responsive: true, maintainAspectRatio: true, circumference: 180, rotation: 270, cutout: '70%', plugins: { legend: { display: false }, tooltip: { enabled: false } } } }); }
+                const texasViolationsCtx = document.getElementById('texasViolationsChart');
+                if(texasViolationsCtx) { new Chart(texasViolationsCtx, { type: 'line', data: { labels: ['2018', '2019', '2020', '2021', '2022', '2023'], datasets: [{ label: '납(Lead) 위반 시스템 수', data: [85, 92, 98, 115, 120, 105], borderColor: colorPalette.purple, backgroundColor: colorPalette.purple + '33', fill: true, tension: 0.4, }, { label: '비소(Arsenic) 위반 시스템 수', data: [45, 48, 55, 62, 70, 65], borderColor: colorPalette.orange, backgroundColor: colorPalette.orange + '33', fill: true, tension: 0.4, }] }, options: defaultChartOptions }); }
+                const systemSizeViolationsCtx = document.getElementById('systemSizeViolationsChart');
+                if(systemSizeViolationsCtx) { new Chart(systemSizeViolationsCtx, { type: 'bar', data: { labels: ['납', '비소', 'PFAS'], datasets: [{ label: '소규모 시스템', data: [75, 65, 55], backgroundColor: colorPalette.magenta, }, { label: '중규모 시스템', data: [20, 25, 30], backgroundColor: colorPalette.purple, }, { label: '대규모 시스템', data: [5, 10, 15], backgroundColor: colorPalette.blue, }] }, options: { ...defaultChartOptions, scales: { x: { stacked: true, ticks: { color: '#4a5568' }, grid: { display: false } }, y: { stacked: true, ticks: { callback: (value) => value + '%', color: '#4a5568' }, grid: { color: '#e2e8f0' } }, }, plugins: { tooltip: { callbacks: { title: tooltipTitleCallback, label: function(context) { let label = context.dataset.label || ''; if (label) { label += ': '; } if (context.parsed.y !== null) { label += context.parsed.y + '%'; } return label; } } } } } }); }
+                const texasPfasCtx = document.getElementById('texasPfasChart');
+                if(texasPfasCtx) { new Chart(texasPfasCtx, { type: 'bar', data: { labels: ['포트워스 (Tarrant County)', '휴스턴', '댈러스', '오스틴', '샌안토니오'], datasets: [ { label: 'PFOA 검출 농도 (ppt)', data: [8.1, 5.5, 4.2, 2.1, 1.5], backgroundColor: colorPalette.red, }, { label: 'PFOS 검출 농도 (ppt)', data: [7.2, 6.8, 3.9, 2.5, 1.8], backgroundColor: colorPalette.purple, } ] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { title: { display: true, text: '검출 농도 (ppt, parts per trillion)' } } }, plugins: { legend: { position: 'top', }, tooltip: { mode: 'index', intersect: false }, annotation: { annotations: { line1: { type: 'line', scaleID: 'y', value: 4.0, borderColor: 'rgb(0, 0, 0)', borderWidth: 2, borderDash: [6, 6], label: { content: 'EPA 기준 (4.0 ppt)', display: true, position: 'end', backgroundColor: 'rgba(0,0,0,0.7)', font: { style: 'normal' } } } } } } } }); }
+            })();
+        </script>
+    </template>
+    
+    <template id="malaysia-template">
+        <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+
+            <header class="text-center mb-12">
+                <h1 class="text-4xl md:text-5xl font-black text-[#003f5c] mb-4">말레이시아 수질 위기 심층 분석</h1>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">높은 식수 접근성 이면에 가려진 원수 오염의 실태와 미래 과제 (2025년 기준)</p>
+            </header>
+    
+            <section id="access-vs-safety" class="mb-16">
+                <h2 class="section-title">1. 접근성 대 안전성: 통계 뒤에 숨겨진 진실</h2>
+                <p class="section-subtitle">말레이시아는 99.9%의 경이로운 기본 식수 접근성을 달성했지만, '안전하게 관리되는' 식수 이용률은 93.8%에 그쳐 약 200만 명이 잠재적 위험에 노출되어 있습니다.</p>
+                <div class="card">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                        <div class="flex flex-col gap-6 text-center">
+                            <div class="stat-card border-[#003f5c]"><p class="stat-value text-[#003f5c]">99.9%</p><p class="stat-label">기본 식수 접근성¹</p></div>
+                             <div class="stat-card border-[#ff6361]"><p class="stat-value text-[#ff6361]">93.8%</p><p class="stat-label">'안전하게 관리되는' 식수 이용률¹</p></div>
+                        </div>
+                        <div class="chart-container h-96">
+                            <canvas id="accessGapChart_MY"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </section>
+    
+            <section id="river-pollution" class="mb-16">
+                <h2 class="section-title">2. 위기의 원천: 강이 병들고 있다</h2>
+                <p class="section-subtitle">식수원의 근간이 되는 전국 473개 주요 하천 중 40%가 이미 오염된 상태이며, 그 원인은 복합적입니다.</p>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-center text-[#003f5c] mb-4">하천 수질 등급 현황²</h3>
+                        <div class="chart-container h-80"><canvas id="riverQualityChart_MY"></canvas></div>
+                    </div>
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-center text-[#003f5c] mb-4">주요 오염원 구성 비율</h3>
+                        <div class="chart-container h-80"><canvas id="pollutionSourceChart_MY"></canvas></div>
+                    </div>
+                </div>
+            </section>
+    
+            <section id="case-studies" class="mb-16">
+                <h2 class="section-title">3. 데이터로 본 3대 수질 오염 사례</h2>
+                <p class="section-subtitle">말레이시아의 수질 문제는 산업, 농업, 도시화라는 세 가지 유형으로 분류할 수 있습니다. 각 유형별 대표적인 오염 사례를 통해 문제의 심각성을 진단합니다.</p>
+                <div class="space-y-12">
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-[#ff6361] mb-2">유형 1: 산업 폐기물 - 김김강 화학 재난</h3>
+                        <p class="text-center text-gray-600 mb-6">2019년, 2.43톤의 불법 화학 폐기물이 조호르주 김김강에 투기되어 국가적 재난으로 번졌습니다.</p>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                            <div class="text-center">
+                                <p class="text-7xl font-black text-[#ff6361]">6,000+</p><p class="text-2xl font-bold mt-2">유독가스 피해자 발생⁴</p><p class="text-gray-500 mt-1">(2,775명 공식 의료 처치)</p>
+                                <p class="text-4xl font-black text-[#ff6361] mt-8">111</p><p class="text-xl font-bold mt-1">초중고 임시 휴교</p>
+                            </div>
+                            <div class="chart-container h-96"><canvas id="kimkimCaseChart_MY"></canvas></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-[#bc5090] mb-2">유형 2: 농업 오염 - 카메론 하이랜드의 침묵</h3>
+                        <p class="text-center text-gray-600 mb-6">고랭지 농업 지대의 과도한 비료 사용은 하천 생태계를 파괴하고 있습니다.</p>
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                             <div class="chart-container h-96"><canvas id="cameronCaseChart_MY"></canvas></div>
+                            <div>
+                                <p class="text-gray-700 mb-4">특히 하천의 부영양화를 유발하는 **인산염(Phosphate)** 농도가 심각한 수준입니다. 버탐강의 인산염 농도는 **0.96 mg/L**로, 건강한 생태계 권장 기준(**0.1 mg/L**)의 **9.6배**에 달합니다.⁵</p>
+                                <div class="bg-purple-50 border-l-4 border-[#bc5090] p-4 rounded-lg"><h4 class="font-bold text-[#bc5090]">퇴적물 속의 시한폭탄</h4><p class="text-sm text-gray-700 mt-1">하천 바닥 퇴적물에는 물 속보다 최대 **10.3배** 더 많은 인산염이 축적되어 있어, 장기적인 오염원으로 작용하고 있습니다.⁵</p></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="text-2xl font-bold text-[#58508d] mb-2">유형 3: 도시화와 인프라 - 클랑 밸리의 반복되는 단수</h3>
+                        <p class="text-center text-gray-600 mb-6">수도권의 잦은 단수는 오염과 노후 인프라가 결합된 구조적 문제입니다.</p>
+                         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                            <div>
+                                <p class="text-gray-700 mb-4">2020년 9월, 단 한 번의 악취 오염 사고로 **120만 가구**가 최장 6일간 단수를 겪었습니다.⁶ 근본 원인 중 하나는 노후 상수도관으로 인한 높은 무수수량(NRW)입니다.</p>
+                                <ul class="space-y-4"><li class="flex items-start"><span class="text-3xl font-black text-[#58508d] mr-4">28%</span><div><h4 class="font-bold">높은 무수수량(NRW)⁸</h4><p class="text-sm text-gray-600">생산된 물의 1/4 이상이 누수 등으로 손실</p></div></li><li class="flex items-start"><span class="text-3xl font-black text-[#58508d] mr-4">40년</span><div><h4 class="font-bold">노후관 교체 소요 시간⁸</h4><p class="text-sm text-gray-600">현재 속도로 6,000km의 노후관을 모두 교체하는 데 걸리는 예상 시간</p></div></li></ul>
+                            </div>
+                            <div class="chart-container h-96"><canvas id="klangCaseChart_MY"></canvas></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+    
+            <section id="new-threats" class="mb-16">
+                <h2 class="section-title">4. 새로운 위협: 보이지 않는 위험들</h2>
+                <p class="section-subtitle">전통적인 오염원을 넘어, 미세플라스틱과 같은 신종 오염물질이 새로운 과제로 떠오르고 있습니다.</p>
+                <div class="card bg-gray-800 text-white">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                        <div class="text-center"><p class="text-6xl">💧</p><p class="text-5xl font-black text-cyan-400 mt-4">1.44개/L</p><p class="text-xl font-bold mt-2">슬랑오르 강 미세플라스틱 평균 검출량⁷</p><p class="text-sm text-gray-400 mt-2">시판 생수에서는 리터당 최대 24만 개의 나노플라스틱이 검출되기도 합니다.⁹</p></div>
+                        <div><h3 class="text-2xl font-bold text-white mb-4">미래를 위협하는 신종 오염물질</h3><p class="text-gray-300">미세플라스틱, 의약품, 내분비계 교란물질 등은 현재의 정수 처리 시스템으로는 완벽한 제거가 어렵습니다. 인체에 축적될 경우 잠재적 건강 위험을 초래할 수 있어, 이에 대한 규제 및 관리 기술 개발이 시급한 과제입니다.</p></div>
+                    </div>
+                </div>
+            </section>
+    
+            <footer class="mt-12 bg-[#003f5c] text-white rounded-lg shadow-xl p-8">
+                 <h2 class="text-3xl font-bold text-center text-white mb-4">결론 및 정책 제언</h2>
+                 <p class="text-center text-gray-300 max-w-3xl mx-auto mb-6">말레이시아의 수질 문제는 '깨끗한 물의 부족'이 아니라 '깨끗한 원수의 부족'에서 기인합니다. 지속가능한 수자원 관리를 위해 강력하고 체계적인 정책 실행이 요구됩니다.</p>
+                 <div class="max-w-4xl mx-auto bg-white/10 p-4 rounded-lg"><div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center"><div class="p-4"><h4 class="font-bold text-lg text-[#ffa600]">예방 중심 규제</h4><p class="text-gray-200 text-sm">오염원 사전 차단을 위한 산업 폐수 및 농업 비료 사용 기준 강화</p></div><div class="p-4"><h4 class="font-bold text-lg text-[#ff6361]">기술 기반 관리</h4><p class="text-gray-200 text-sm">미량 유해물질 제거를 위한 고도 정수 처리 및 스마트 모니터링 시스템 도입</p></div><div class="p-4"><h4 class="font-bold text-lg text-[#bc5090]">통합 유역 관리</h4><p class="text-gray-200 text-sm">행정구역을 넘어선 유역 단위의 통합 관리 체계 구축 및 이해관계자 협력 강화</p></div></div></div>
+            </footer>
+            <div class="text-center text-xs text-gray-500 mt-8"><p class="font-bold mb-2">출처(References)</p><p class="leading-relaxed max-w-4xl mx-auto">¹WHO/UNICEF JMP(2023), ²Dept. of Environment Malaysia, ³Wikipedia, ⁴Bernama, ⁵Rahim, N. A., et al.(2024), ⁶Wiki Impact(2023), ⁷ACS EST Water(2024), ⁸Harakahdaily(2023), ⁹AmwayNow(2024)</p></div>
+        </div>
+        <script>
+            (function createMalaysiaCharts() {
+                const PALETTE = { darkBlue: '#003f5c', purple: '#58508d', magenta: '#bc5090', red: '#ff6361', orange: '#ffa600', lightGray: '#e2e8f0', text: '#1f2937' };
+                const defaultTooltipOptions = { plugins: { tooltip: { backgroundColor: '#fff', titleColor: PALETTE.text, bodyColor: PALETTE.text, borderColor: PALETTE.lightGray, borderWidth: 1, padding: 10, boxPadding: 4 } } };
+                const defaultChartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, color: PALETTE.text, font: { size: 16, weight: 'bold' } }, ...defaultTooltipOptions.plugins }, scales: { y: { grid: { color: PALETTE.lightGray }, ticks: { color: PALETTE.text } }, x: { grid: { display: false }, ticks: { color: PALETTE.text } } } };
+                const accessGapCtx = document.getElementById('accessGapChart_MY')?.getContext('2d');
+                if(accessGapCtx) new Chart(accessGapCtx, { type: 'bar', data: { labels: ['도시 지역', '농촌 지역'], datasets: [{ label: '안전한 식수 이용률 (%)', data: [96, 89], backgroundColor: [PALETTE.purple, PALETTE.magenta], borderRadius: 5, barPercentage: 0.6 }] }, options: { ...defaultChartOptions, plugins: { ...defaultChartOptions.plugins, title: { ...defaultChartOptions.plugins.title, text: '도시-농촌 간 안전한 식수 이용률 격차¹' } } } });
+                const riverQualityCtx = document.getElementById('riverQualityChart_MY')?.getContext('2d');
+                if(riverQualityCtx) new Chart(riverQualityCtx, { type: 'doughnut', data: { labels: ['깨끗함 (60%)', '약간 오염 (32%)', '오염 (8%)'], datasets: [{ data: [60, 32, 8], backgroundColor: [PALETTE.darkBlue, PALETTE.orange, PALETTE.red], borderColor: '#ffffff', borderWidth: 4, }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { ...defaultTooltipOptions.plugins, legend: { position: 'bottom', labels: { color: PALETTE.text, font: { size: 14 } } } } } });
+                const pollutionSourceCtx = document.getElementById('pollutionSourceChart_MY')?.getContext('2d');
+                if(pollutionSourceCtx) new Chart(pollutionSourceCtx, { type: 'pie', data: { labels: ['점오염원 (산업/생활, 45%)', '비점오염원 (농업, 35%)', '기타 (토사 등, 20%)'], datasets: [{ data: [45, 35, 20], backgroundColor: [PALETTE.red, PALETTE.magenta, PALETTE.orange], borderColor: '#ffffff', borderWidth: 4, }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { ...defaultTooltipOptions.plugins, legend: { position: 'bottom', labels: { color: PALETTE.text, font: { size: 14 } } } } } });
+                const kimkimCaseCtx = document.getElementById('kimkimCaseChart_MY')?.getContext('2d');
+                if (kimkimCaseCtx) new Chart(kimkimCaseCtx, { type: 'bar', data: { labels: ['투기된 폐기물 (톤)', '공식 피해자 (명)'], datasets: [{ label: '규모', data: [2.43, 2775], backgroundColor: [PALETTE.red, PALETTE.orange], borderRadius: 5, }] }, options: { ...defaultChartOptions, scales: { y: { type: 'logarithmic', title: { display: true, text: '규모 (로그 스케일)' } } }, plugins: { ...defaultChartOptions.plugins, title: { ...defaultChartOptions.plugins.title, text: '김김강 사태 규모 (정량 데이터)³' } } } });
+                const cameronCaseCtx = document.getElementById('cameronCaseChart_MY')?.getContext('2d');
+                if (cameronCaseCtx) new Chart(cameronCaseCtx, { type: 'bar', data: { labels: ['버탐강 인산염 농도', '생태계 권장 기준'], datasets: [{ label: '인산염 농도 (mg/L)', data: [0.96, 0.1], backgroundColor: [PALETTE.magenta, PALETTE.darkBlue], barPercentage: 0.5, borderRadius: 5, }] }, options: { ...defaultChartOptions, plugins: { ...defaultChartOptions.plugins, title: { ...defaultChartOptions.plugins.title, text: '카메론 하이랜드 인산염 오염 수준⁵' } } } });
+                const klangCaseCtx = document.getElementById('klangCaseChart_MY')?.getContext('2d');
+                if (klangCaseCtx) new Chart(klangCaseCtx, { type: 'bar', data: { labels: ['교체 필요 노후관 (km)', '연간 평균 교체 실적 (km)'], datasets: [{ label: '상수도관 길이 (km)', data: [6000, 150], backgroundColor: [PALETTE.purple, PALETTE.darkBlue], borderRadius: 5, }] }, options: { ...defaultChartOptions, scales: { y: { type: 'logarithmic', title: { display: true, text: '길이 (km, 로그 스케일)' } } }, plugins: { ...defaultChartOptions.plugins, title: { ...defaultChartOptions.plugins.title, text: '클랑 밸리 노후 상수도관 현황⁸' } } } });
+            })();
+        </script>
+    </template>
+    
+    <template id="indonesia-template">
+        <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+
+            <header class="text-center mb-12">
+                <h1 class="text-4xl md:text-5xl font-black text-[#003f5c] mb-4">인도네시아 수질 위기</h1>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">인도네시아 국민의 92%가 개선된 수원에 접근하지만, 실제 '안전한 물'을 마시는 비율은 12%에 불과합니다. 이 통계적 착시 뒤에 숨겨진 보이지 않는 위험을 들여다봅니다.</p>
+            </header>
+    
+            <section id="the-hidden-crisis" class="mb-16">
+                <div class="bg-white rounded-lg shadow-xl p-6 md:p-8">
+                    <h2 class="text-2xl md:text-3xl font-bold text-center text-[#003f5c] mb-6">통계의 착시: 92% 접근 vs 12% 안전</h2>
+                    <p class="text-center text-gray-700 mb-8 max-w-3xl mx-auto">대부분의 가정이 물리적으로 물에 접근하지만, 수질 안전성까지 보장된 경우는 극히 드뭅니다. 이 격차는 수많은 국민을 오염된 물의 위험에 직접 노출시키고 있습니다.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                        <div class="chart-container max-w-md mx-auto h-80 md:h-96">
+                            <canvas id="accessGapChart_ID"></canvas>
+                        </div>
+                        <div class="flex flex-col gap-6 text-center">
+                            <div class="bg-red-50 border-l-4 border-[#ff6361] p-6 rounded-lg"><p class="text-5xl md:text-7xl font-black text-[#ff6361]">70%</p><p class="text-xl font-bold mt-2">가정용 식수, 분변(대장균)에 오염</p><p class="text-sm text-gray-500 mt-1">(출처: UNICEF, 2022)</p></div>
+                             <div class="bg-blue-50 border-l-4 border-[#58508d] p-6 rounded-lg"><p class="text-5xl md:text-7xl font-black text-[#58508d]">11.8%</p><p class="text-xl font-bold mt-2">실제 '안전하게 관리되는' 식수 접근율</p><p class="text-sm text-gray-500 mt-1">(출처: Kemenkes, 2022)</p></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+    
+            <section id="contaminated-sources" class="mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-center text-[#003f5c] mb-8">오염의 근원: 강에서 우물까지, 안전지대는 없다</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="bg-white rounded-lg shadow-xl p-6 md:p-8">
+                        <h3 class="text-2xl font-bold text-[#003f5c] mb-4">강과 하천: 오염된 원수</h3>
+                        <p class="mb-6 text-gray-700">대부분의 상수도 원수가 되는 강물의 95%는 이미 오염되어 있습니다. 특히 찌따룸 강은 산업 폐수로 인해 '세계에서 가장 오염된 강'이라는 오명을 안고 있습니다.</p>
+                        <div class="chart-container h-80"><canvas id="riverQualityChart_ID"></canvas></div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-xl p-6 md:p-8">
+                        <h3 class="text-2xl font-bold text-[#003f5c] mb-4">국민의 주된 식수원과 그 위험</h3>
+                        <p class="mb-6 text-gray-700">상수도 불신으로 인해 많은 국민이 지하수(우물)와 리필 생수(DAMIU)에 의존하지만, 이들 역시 심각한 오염에 노출되어 있습니다.</p>
+                        <div class="chart-container h-80"><canvas id="waterSourceChart_ID"></canvas></div>
+                    </div>
+                </div>
+                 <div class="mt-8 bg-white rounded-lg shadow-xl p-6 md:p-8">
+                    <h3 class="text-2xl font-bold mb-6 text-center text-[#003f5c]">현장의 목소리: 실제 오염 사례</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+                        <div class="border border-gray-200 p-4 rounded-lg"><p class="font-bold text-[#bc5090]">찌따룸 강의 비극</p><p class="mt-2 text-gray-600">"강물 색이 매일 바뀝니다. 정부의 정화 노력에도 불구하고 공장들은 밤마다 몰래 폐수를 버리고, 주민들은 피부병에 시달립니다." - 현지 주민 인터뷰 (Kompas, 2024)</p></div>
+                        <div class="border border-gray-200 p-4 rounded-lg"><p class="font-bold text-[#bc5090]">자카르타의 집단 설사</p><p class="mt-2 text-gray-600">"하수도 시설이 없는 인구 밀집 지역에서 우물물이 대장균에 오염되어 수십 명이 집단 설사 증세를 보였습니다." - 지역 보건소 발표 (The Jakarta Post, 2024)</p></div>
+                        <div class="border border-gray-200 p-4 rounded-lg"><p class="font-bold text-[#bc5090]">'깨끗한 물'의 배신</p><p class="mt-2 text-gray-600">"반둥시 리필 생수(DAMIU)의 40% 이상에서 기준치 초과 대장균이 검출되었습니다. 비싼 돈 주고 사 마시는 물마저 믿을 수 없습니다." - 소비자 보호 재단 발표 (YLKB, 2025)</p></div>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="chemical-contamination" class="mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-center text-[#003f5c] mb-8">화학적 오염: 특정 지역의 숨은 위험</h2>
+                <div class="bg-white rounded-lg shadow-xl p-6 md:p-8">
+                    <p class="text-center text-gray-600 mb-8 max-w-3xl mx-auto">전반적으로는 양호한 편이나, 일부 화학 물질은 특정 지역에서 심각한 오염 수준을 보입니다. 특히 산업 폐수의 영향을 받는 지역의 6가 크롬 오염은 주목해야 할 문제입니다.</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="kpi-card p-6 text-center border-t-4 border-green-400"><h4 class="font-bold text-lg text-gray-700">질산염 (Nitrate)</h4><p class="text-4xl font-black text-green-500 mt-4">97.6%</p><p class="font-semibold text-gray-500 mt-2">기준 충족률</p></div>
+                        <div class="kpi-card p-6 text-center border-t-4 border-green-400"><h4 class="font-bold text-lg text-gray-700">아질산염 (Nitrite)</h4><p class="text-4xl font-black text-green-500 mt-4">96.7%</p><p class="font-semibold text-gray-500 mt-2">기준 충족률</p></div>
+                        <div class="kpi-card p-6 text-center border-t-4 border-green-400"><h4 class="font-bold text-lg text-gray-700">총용존고형물 (TDS)</h4><p class="text-4xl font-black text-green-500 mt-4">97.9%</p><p class="font-semibold text-gray-500 mt-2">기준 충족률</p></div>
+                        <div class="kpi-card p-6 text-center border-t-4 border-red-500"><h4 class="font-bold text-lg text-gray-700">6가 크롬 (Cr⁶⁺)</h4><p class="text-4xl font-black text-red-500 mt-4">72.6%</p><p class="font-semibold text-gray-500 mt-2">기준 충족률</p></div>
+                    </div>
+                     <p class="text-xs text-center text-gray-400 mt-4">Source: Kemenkes SKAMRT 2020 (음용수 기준)</p>
+                </div>
+            </section>
+    
+            <section id="microbiological-contamination" class="mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-center text-[#003f5c] mb-8">미생물 오염: 보이지 않는 가장 큰 위협</h2>
+                <div class="bg-white rounded-lg shadow-xl p-6 md:p-8">
+                    <p class="text-center text-gray-700 mb-8 max-w-3xl mx-auto">인도네시아 식수 오염의 가장 심각한 문제는 분변에서 유래하는 대장균 오염입니다. 이는 생활하수 처리 미흡과 비위생적인 정화조 관리에서 비롯되며, 수인성 질병의 직접적인 원인이 됩니다.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                        <div class="text-center"><p class="text-7xl md:text-8xl font-black text-[#ff6361]">7/10</p><p class="text-2xl font-bold text-gray-800 mt-2">가구의 식수, 대장균 오염</p><p class="text-gray-500 mt-1">(Source: WHO/UNICEF)</p></div>
+                        <div class="chart-container h-80"><canvas id="ecoliContaminationChart_ID"></canvas></div>
+                    </div>
+                </div>
+            </section>
+    
+            <section id="health-impact" class="mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-center text-[#003f5c] mb-8">인간의 비극: 오염된 물이 앗아가는 건강과 미래</h2>
+                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="bg-white rounded-lg shadow-xl p-6 text-center transform hover:scale-105 transition-transform duration-300"><p class="text-6xl mb-4">🦠</p><h3 class="text-2xl font-bold text-[#58508d]">미생물 오염</h3><p class="mt-2 text-gray-700">대장균, 콜레라, 장티푸스 등은 설사병의 주원인이며, 5세 미만 아동의 주요 사망 원인입니다.</p></div>
+                    <div class="bg-white rounded-lg shadow-xl p-6 text-center transform hover:scale-105 transition-transform duration-300"><p class="text-6xl mb-4">☣️</p><h3 class="text-2xl font-bold text-[#bc5090]">화학적 오염</h3><p class="mt-2 text-gray-700">산업 폐수의 납, 비소, 수은 등 중금속은 암과 신경계 손상을 유발할 수 있습니다.</p></div>
+                    <div class="bg-white rounded-lg shadow-xl p-6 text-center transform hover:scale-105 transition-transform duration-300"><p class="text-6xl mb-4">👶</p><h3 class="text-2xl font-bold text-[#ff6361]">아동 발육 부진 (Stunting)</h3><p class="mt-2 text-gray-700">반복되는 장 감염은 영양 흡수를 방해하여 신체 및 두뇌 발달을 영구적으로 저해합니다.</p></div>
+                </div>
+            </section>
+    
+            <section id="solution" class="mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-center text-[#003f5c] mb-8">필수 해결책: 가정용 정수 시스템</h2>
+                <p class="text-center text-lg mb-8 max-w-3xl mx-auto text-gray-700">중앙 정부의 노력이 결실을 맺기까지 기다릴 수 없습니다. 당장의 건강 위협을 막기 위한 가장 현실적인 대안은 각 가정에 맞는 정수 시스템을 갖추는 것입니다.</p>
+                <div class="bg-white rounded-lg shadow-xl p-6 md:p-8">
+                     <div class="w-full overflow-x-auto"><table class="w-full text-sm text-left text-gray-500 min-w-[600px]"><thead class="text-xs text-gray-700 uppercase bg-gray-50"><tr><th scope="col" class="px-6 py-3">오염 문제</th><th scope="col" class="px-6 py-3">필수 필터 솔루션</th></tr></thead><tbody><tr class="bg-white border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">세균, 바이러스 (대장균 등)</th><td class="px-6 py-4 font-semibold text-[#003f5c]">UV 살균 / 세라믹 / 역삼투압(RO)</td></tr><tr class="bg-gray-50 border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">중금속, 화학물질, 냄새</th><td class="px-6 py-4 font-semibold text-[#58508d]">활성탄 (Carbon)</td></tr><tr class="bg-white border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">염분 (해안가)</th><td class="px-6 py-4 font-semibold text-[#bc5090]">역삼투압 (RO)</td></tr></tbody></table></div>
+                </div>
+            </section>
+    
+            <footer class="mt-12 bg-[#003f5c] text-white rounded-lg shadow-xl p-8">
+                 <h2 class="text-3xl font-bold text-center text-white mb-4">결론: 안전한 물을 향한 여정</h2>
+                 <p class="text-center text-gray-300 max-w-3xl mx-auto mb-6">인도네시아의 수질 위기는 정부의 거시적 인프라 개선과 함께, 각 가정이 스스로를 보호할 수 있는 즉각적인 해결책이 시급한 복합적인 문제입니다. 정수 시스템 보급은 단순한 편의 제공을 넘어, 국민의 건강과 국가의 미래를 지키는 핵심적인 방어선입니다.</p>
+                 <div class="max-w-4xl mx-auto bg-white/10 p-4 rounded-lg"><div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center"><div class="p-4"><h4 class="font-bold text-lg text-[#ffa600]">인프라 개선</h4><p class="text-gray-200 text-sm">중앙 정부 주도의 상하수도 시설 확충 및 오염원 관리</p></div><div class="p-4"><h4 class="font-bold text-lg text-[#ff6361]">가정 내 해결책</h4><p class="text-gray-200 text-sm">가정용 정수 시스템을 통한 즉각적인 위험 요소 제거</p></div><div class="p-4"><h4 class="font-bold text-lg text-[#bc5090]">인식 개선</h4><p class="text-gray-200 text-sm">안전한 물의 중요성과 올바른 관리 방법에 대한 대국민 교육</p></div></div></div>
+            </footer>
+    
+            <div class="text-center text-xs text-gray-500 mt-8"><p class="font-bold mb-2">자료 출처</p><p class="leading-relaxed"><a href="https://washdata.org/" target="_blank" class="hover:underline">WHO/UNICEF JMP</a> | <a href="https://www.sdg6data.org/" target="_blank" class="hover:underline">UN-Water</a> | <a href="https://www.unicef.org/indonesia/water-sanitation-and-hygiene" target="_blank" class="hover:underline">UNICEF Indonesia</a> | <a href="https://kemkes.go.id/id/home" target="_blank" class="hover:underline">Kemenkes</a> | <a href="https://www.kompas.com/" target="_blank" class="hover:underline">Kompas</a> | <a href="https://www.thejakartapost.com/" target="_blank" class="hover:underline">The Jakarta Post</a></p></div>
+        </div>
+        <script>
+            (function createIndonesiaCharts() {
+                const PALETTE = { darkBlue: '#003f5c', purple: '#58508d', magenta: '#bc5090', red: '#ff6361', orange: '#ffa600', lightGray: '#e2e8f0', text: '#1f2937' };
+                const defaultTooltipOptions = { plugins: { tooltip: { callbacks: { title: function(tooltipItems) { const item = tooltipItems[0]; let label = item.chart.data.labels[item.dataIndex]; return Array.isArray(label) ? label.join(' ') : label; } } } } };
+                
+                const accessGapCtx = document.getElementById('accessGapChart_ID')?.getContext('2d');
+                if (accessGapCtx) new Chart(accessGapCtx, { type: 'doughnut', data: { labels: ['안전한 물 접근 (Aman)', '물리적 접근만 가능 (Layak)'], datasets: [{ data: [11.8, 80.84], backgroundColor: [PALETTE.purple, PALETTE.red], borderColor: '#FFFFFF', borderWidth: 4, }] }, options: { ...defaultTooltipOptions, responsive: true, maintainAspectRatio: false, plugins: { ...defaultTooltipOptions.plugins, legend: { position: 'bottom', labels: { color: PALETTE.text, font: { size: 14 } } }, title: { display: true, text: '인도네시아 식수 접근성 격차 (%)', color: PALETTE.text, font: { size: 16, weight: 'bold' } } }, cutout: '60%' } });
+                
+                const riverQualityCtx = document.getElementById('riverQualityChart_ID')?.getContext('2d');
+                if (riverQualityCtx) new Chart(riverQualityCtx, { type: 'bar', data: { labels: ['싱가포르', '대한민국', '중국', '라오스', '일본', '태국', '인도네시아'], datasets: [{ label: '양호한 수질의 수역 비율 (%)', data: [100, 94, 89, 80, 57, 37, 5], backgroundColor: [PALETTE.darkBlue, PALETTE.darkBlue, PALETTE.darkBlue, PALETTE.darkBlue, PALETTE.purple, PALETTE.orange, PALETTE.red], }] }, options: { ...defaultTooltipOptions, indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, max: 100, grid: { color: PALETTE.lightGray }, ticks: { color: PALETTE.text } }, y: { grid: { display: false }, ticks: { color: PALETTE.text } } }, plugins: { ...defaultTooltipOptions.plugins, legend: { display: false }, title: { display: true, text: '주변국 대비 양호한 수질 비율 (UN-Water, 2023)', color: PALETTE.text, font: { size: 16, weight: 'bold' } } } } });
+                
+                const waterSourceCtx = document.getElementById('waterSourceChart_ID')?.getContext('2d');
+                if (waterSourceCtx) new Chart(waterSourceCtx, { type: 'pie', data: { labels: ['지하수 (우물)', '리필 생수 (DAMIU)', '상수도', '기타'], datasets: [{ data: [46, 31, 20, 3], backgroundColor: [PALETTE.orange, PALETTE.red, PALETTE.darkBlue, PALETTE.lightGray], borderColor: '#FFFFFF', borderWidth: 2, }] }, options: { ...defaultTooltipOptions, responsive: true, maintainAspectRatio: false, plugins: { ...defaultTooltipOptions.plugins, legend: { position: 'bottom', labels: { color: PALETTE.text, font: { size: 14 } } }, title: { display: true, text: '주요 식수원 구성 비율 (%)', color: PALETTE.text, font: { size: 16, weight: 'bold' } } } } });
+                
+                const ecoliCtx = document.getElementById('ecoliContaminationChart_ID')?.getContext('2d');
+                if (ecoliCtx) new Chart(ecoliCtx, { type: 'bar', data: { labels: ['리필 생수', '보호되지 않은 우물', '보호된 우물'], datasets: [{ label: '대장균 기준 미충족 비율 (%)', data: [40, 35, 25], backgroundColor: [PALETTE.red, PALETTE.orange, PALETTE.magenta], }] }, options: { ...defaultTooltipOptions, indexAxis: 'y', responsive: true, maintainAspectRatio: false, scales: { x: { beginAtZero: true, grid: { color: PALETTE.lightGray }, ticks: { color: PALETTE.text, callback: value => value + '%' } }, y: { grid: { display: false }, ticks: { color: PALETTE.text } } }, plugins: { ...defaultTooltipOptions.plugins, legend: { display: false }, title: { display: true, text: '주요 식수원별 대장균 오염률 (추정)', color: PALETTE.text, font: { size: 16, weight: 'bold' } } } } });
+            })();
+        </script>
+    </template>
+    
+    <template id="vietnam-template">
+        <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+
+            <header class="text-center mb-16">
+                <h1 class="text-4xl md:text-5xl font-black text-[#003f5c] mb-4">베트남 수질 위기: 보이지 않는 위험</h1>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">베트남은 높은 식수 접근성에도 불구하고, 심각한 수질 오염으로 인해 국민 건강이 위협받고 있습니다. 이 인포그래픽은 통계 뒤에 숨겨진 베트남 수질 문제의 다각적인 현실을 조명합니다.</p>
+            </header>
+    
+            <section id="crisis-overview" class="mb-20">
+                <h2 class="section-title text-[#003f5c]">1. 접근성 vs 안전성: 심각한 괴리</h2>
+                <p class="section-subtitle">베트남 국민 대다수는 개선된 수원에 접근 가능하지만, '안전하게 관리되는' 물을 마시는 비율은 절반에 불과합니다. 이 격차는 수많은 국민을 보이지 않는 위험에 노출시키고 있습니다.</p>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                    <div class="card">
+                        <h3 class="text-xl font-bold text-center mb-4">식수 접근성과 안전성 격차¹</h3>
+                        <div class="chart-container max-w-sm mx-auto h-80"><canvas id="accessGapChart_VN"></canvas></div>
+                        <p class="text-center text-sm text-gray-600 mt-4">물리적으로 물에 접근 가능한 비율(94-98%)과 실제 안전한 물을 이용하는 비율(58%) 사이의 큰 차이는 심각한 수질 관리 문제를 시사합니다.</p>
+                    </div>
+                    <div class="card bg-[#003f5c] text-white">
+                        <h3 class="text-xl font-bold text-center mb-6">오염된 물의 치명적 결과¹</h3>
+                        <div class="space-y-6 text-center">
+                            <div><p class="stat-value text-[#ffa600]">9,000명</p><p class="stat-label">연간 사망자</p></div>
+                            <div><p class="stat-value text-[#ff6361]">200,000건</p><p class="stat-label">연간 암 발병 추정</p></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+    
+            <section id="pollution-sources" class="mb-20">
+                <h2 class="section-title text-[#58508d]">2. 오염의 삼중고: 어디에서 오는가?</h2>
+                <p class="section-subtitle">베트남의 수질 악화는 산업, 생활, 농업이라는 세 가지 주요 오염원이 복합적으로 작용한 결과입니다.</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div class="card text-center"><p class="text-6xl mb-4">🏭</p><h3 class="text-2xl font-bold text-[#58508d]">산업 폐수</h3><p class="mt-2 text-gray-700">전체 오염의 주요 원인. 특히 수많은 공예 마을과 소규모 산업단지에서 처리되지 않은 폐수가 무단 방류되고 있습니다.⁶</p></div>
+                    <div class="card text-center"><p class="text-6xl mb-4">🏠</p><h3 class="text-2xl font-bold text-[#bc5090]">생활 하수</h3><p class="mt-2 text-gray-700">전국 생활 하수의 약 <strong class="text-[#bc5090] text-3xl">87%</strong>가 처리 없이 그대로 방류되어 도시 하천 오염을 가중시키고 있습니다.</p></div>
+                    <div class="card text-center"><p class="text-6xl mb-4">🌾</p><h3 class="text-2xl font-bold text-[#ffa600]">농업 활동</h3><p class="mt-2 text-gray-700">과도한 화학 비료와 농약 사용으로 질소, 인, 독성 물질이 하천과 지하수를 오염시키고 있습니다.⁷</p></div>
+                </div>
+            </section>
+    
+            <section id="regional-hotspots" class="mb-20">
+                <h2 class="section-title text-[#bc5090]">3. 지역별 오염 현황: 전국에 걸친 위협</h2>
+                <p class="section-subtitle">베트남의 수질 문제는 지역별로 다른 양상을 보이지만, 전국 어느 곳도 안전하지 않습니다.</p>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="lg:col-span-2 card">
+                        <h3 class="text-xl font-bold text-center mb-4 text-[#bc5090]">북부 (홍강 삼각주): 보이지 않는 독, 비소(Arsenic)⁴</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                            <div><p class="text-gray-700">북부 지역 최대의 위협은 지하수에 녹아 있는 비소입니다. 지질학적 특성과 무분별한 지하수 개발이 맞물려 약 700만 명의 주민이 만성 비소 중독 위험에 노출되어 있습니다. 일부 지역의 비소 농도는 WHO 기준치의 300배를 초과하는 충격적인 수준입니다.</p></div>
+                            <div class="chart-container h-80"><canvas id="arsenicChart_VN"></canvas></div>
+                        </div>
+                    </div>
+                    <div class="card"><h3 class="text-xl font-bold text-center mb-4 text-[#ff6361]">남부 (메콩 델타): 유기물과 화학물질 오염</h3><p class="text-gray-700">베트남의 곡창지대인 메콩 델타는 생활하수와 농업 활동으로 인한 유기물(BOD, COD) 및 영양소 오염이 심각합니다. 최근에는 해수면 상승으로 인한 염분 침투까지 더해져 이중고를 겪고 있습니다.</p></div>
+                    <div class="card"><h3 class="text-xl font-bold text-center mb-4 text-[#ffa600]">중부 (동나이강 유역): 산업화의 그림자⁵</h3><p class="text-gray-700">주요 공업지대와 관광도시가 밀집한 중부 지역은 산업 폐수와 도시 하수로 인해 동나이강을 비롯한 주요 하천의 수질이 지난 10년간 지속적으로 악화되고 있습니다.</p></div>
+                </div>
+            </section>
+    
+            <section id="solutions" class="mb-16">
+                <h2 class="section-title text-[#003f5c]">4. 대응과 과제: 안전한 물을 향한 여정</h2>
+                <p class="section-subtitle">문제 해결을 위해 정부와 국제사회, 민간 시장이 움직이고 있지만, 갈 길은 여전히 멉니다.</p>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="card">
+                        <h3 class="text-xl font-bold text-center mb-4">정부와 국제사회의 노력</h3>
+                        <ul class="space-y-4"><li class="flex items-start"><span class="text-3xl mr-4">⚖️</span><div><h4 class="font-bold">신 수자원법 제정 (2023)⁸</h4><p class="text-sm text-gray-600">유역 기반 통합 관리와 오염원 통제를 강화하고, 2030년까지 전국민에게 깨끗한 물 공급을 목표로 합니다.</p></div></li><li class="flex items-start"><span class="text-3xl mr-4">🌍</span><div><h4 class="font-bold">세계은행 금융 지원 (2023)⁹</h4><p class="text-sm text-gray-600">$5,000만 달러 규모의 채권을 발행하여 학교 등 취약 시설의 정수 시스템 보급을 지원합니다.</p></div></li></ul>
+                    </div>
+                    <div class="card">
+                        <h3 class="text-xl font-bold text-center mb-4">민간 시장의 반응: 정수기 시장 급성장²,¹⁰</h3>
+                        <div class="chart-container h-80"><canvas id="marketGrowthChart_VN"></canvas></div>
+                        <p class="text-center text-sm text-gray-600 mt-4">공공 식수 시스템에 대한 불신이 커지면서, 스스로 안전을 확보하려는 수요가 폭발적으로 증가하고 있습니다.</p>
+                    </div>
+                </div>
+            </section>
+    
+            <footer class="mt-12 bg-[#003f5c] text-white rounded-lg shadow-xl p-8">
+                <h2 class="text-3xl font-bold text-center text-white mb-4">결론: 통합적 접근이 시급하다</h2>
+                <p class="text-center text-gray-300 max-w-3xl mx-auto mb-6">베트남의 수질 위기는 인프라 투자, 강력한 규제, 기술 도입, 그리고 국민 인식 개선이 함께 이루어져야 해결될 수 있는 복합적인 문제입니다. 지속 가능한 미래를 위해 모든 이해관계자의 즉각적이고 통합적인 노력이 필요합니다.</p>
+            </footer>
+            <div class="text-center text-xs text-gray-500 mt-8"><p class="font-bold mb-2">자료 출처</p><p class="leading-relaxed max-w-4xl mx-auto">¹Duong, T.T., & Nguyen, V.H. (2024) | ²Vietnam Water Purifier Market Research Report (2024) | ³World Bank Vietnam (2024) | ⁴Nguyen, K.P., et al. (2023) | ⁵Tran, M.L., & Le, H.D. (2024) | ⁶Vietnam Environment Administration (2023) | ⁷Food and Agriculture Organization (2024) | ⁸National Assembly of Vietnam (2023) | ⁹World Bank (2023) | ¹⁰Vietnam Market Research Institute (2024)</p></div>
+        </div>
+        <script>
+            (function createVietnamCharts() {
+                const PALETTE = { darkBlue: '#003f5c', purple: '#58508d', magenta: '#bc5090', red: '#ff6361', orange: '#ffa600', lightGray: '#e2e8f0', text: '#1f2937', white: '#ffffff' };
+                const defaultTooltipOptions = { plugins: { tooltip: { backgroundColor: PALETTE.white, titleColor: PALETTE.text, bodyColor: PALETTE.text, borderColor: PALETTE.lightGray, borderWidth: 1, padding: 10, boxPadding: 4, callbacks: { title: function(tooltipItems) { const item = tooltipItems[0]; let label = item.chart.data.labels[item.dataIndex]; return Array.isArray(label) ? label.join(' ') : label; } } } } };
+                const defaultChartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, ...defaultTooltipOptions.plugins }, scales: { y: { ticks: { color: PALETTE.text, font: { family: "'Noto Sans KR', sans-serif" } }, grid: { color: PALETTE.lightGray } }, x: { ticks: { color: PALETTE.text, font: { family: "'Noto Sans KR', sans-serif" } }, grid: { display: false } } } };
+                
+                const accessGapCtx = document.getElementById('accessGapChart_VN')?.getContext('2d');
+                if (accessGapCtx) new Chart(accessGapCtx, { type: 'doughnut', data: { labels: ['안전하게 관리 (58%)', '물리적 접근만 가능 (39%)', '기본 서비스 미만 (3%)'], datasets: [{ data: [58, 39, 3], backgroundColor: [PALETTE.darkBlue, PALETTE.orange, PALETTE.red], borderColor: PALETTE.white, borderWidth: 4, }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { ...defaultTooltipOptions.plugins, legend: { position: 'bottom', labels: { color: PALETTE.text, font: { family: "'Noto Sans KR', sans-serif" } } } } } });
+                
+                const arsenicCtx = document.getElementById('arsenicChart_VN')?.getContext('2d');
+                if (arsenicCtx) new Chart(arsenicCtx, { type: 'bar', data: { labels: ['WHO 안전 기준', '북부지역 최대 검출치'], datasets: [{ label: '비소 농도 (μg/L)', data: [10, 3050], backgroundColor: [PALETTE.darkBlue, PALETTE.red], borderRadius: 5, }] }, options: { ...defaultChartOptions, scales: { y: { type: 'logarithmic', title: { display: true, text: '농도 (μg/L, 로그 스케일)' }, ticks: { color: PALETTE.text, font: { family: "'Noto Sans KR', sans-serif" } }, grid: { color: PALETTE.lightGray } }, x: { ticks: { color: PALETTE.text, font: { family: "'Noto Sans KR', sans-serif" } }, grid: { display: false } } } } });
+                
+                const marketGrowthCtx = document.getElementById('marketGrowthChart_VN')?.getContext('2d');
+                if (marketGrowthCtx) new Chart(marketGrowthCtx, { type: 'line', data: { labels: ['2024', '2026', '2028', '2030'], datasets: [{ label: '정수기 시장 규모 (백만 USD)', data: [502.45, 650, 840, 986.81], borderColor: PALETTE.purple, backgroundColor: 'rgba(88, 80, 141, 0.1)', fill: true, tension: 0.4, pointBackgroundColor: PALETTE.purple, pointRadius: 5 }] }, options: { ...defaultChartOptions, plugins: { ...defaultChartOptions.plugins, legend: { display: true, position: 'bottom', labels: { color: PALETTE.text, font: { family: "'Noto Sans KR', sans-serif" } } }, }, scales: { y: { title: { display: true, text: '시장 규모 (백만 USD)' }, ticks: { color: PALETTE.text, font: { family: "'Noto Sans KR', sans-serif" } }, grid: { color: PALETTE.lightGray } }, x: { ticks: { color: PALETTE.text, font: { family: "'Noto Sans KR', sans-serif" } }, grid: { display: false } } } } });
+            })();
+        </script>
+    </template>
+    
+    <template id="thailand-template">
+        <div class="container mx-auto p-4 md:p-8 max-w-7xl">
+
+            <header class="text-center mb-12">
+                <h1 class="text-4xl md:text-5xl font-black text-[#003f5c] mb-4">태국 수질 현황 심층 분석: 기회와 도전의 교차로</h1>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">태국은 높은 수준의 기본 식수 인프라를 갖추었으나, 수질 안전성이라는 질적 측면에서는 심각한 도전에 직면해 있습니다. 본 보고서는 경제 성장의 이면에 가려진 수자원 관리의 현주소를 데이터 기반으로 분석합니다.</p>
+            </header>
+    
+            <section id="overview" class="mb-16">
+                <div class="card">
+                    <h2 class="text-2xl md:text-3xl font-bold text-center text-[#003f5c] mb-6">1. 접근성 대 안전성: 통계 뒤에 숨겨진 심각한 격차</h2>
+                    <p class="text-center text-gray-700 mb-8 max-w-3xl mx-auto">태국은 99.8%라는 거의 완벽에 가까운 기본 식수 접근성을 달성했지만, WHO/UNICEF가 정의하는 '안전하게 관리되는' 식수 이용률은 절반에도 미치지 못하는 49.5%에 불과합니다. 이는 원수 오염, 정수 처리의 한계, 그리고 도시와 농촌 간의 극심한 인프라 불균형이 복합적으로 작용한 결과입니다.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                        <div class="chart-container max-w-md mx-auto h-80 md:h-96"><canvas id="accessGapChart_TH"></canvas></div>
+                        <div class="flex flex-col gap-6 text-center">
+                            <div class="bg-blue-50 border-l-4 border-[#003f5c] p-6 rounded-lg"><p class="text-5xl md:text-7xl font-black text-[#003f5c]">99.8%</p><p class="text-xl font-bold mt-2">기본 식수 접근성</p><p class="text-sm text-gray-500 mt-1">(개선된 수원에 30분 내 접근 가능한 인구 비율)</p></div>
+                             <div class="bg-red-50 border-l-4 border-[#ff6361] p-6 rounded-lg"><p class="text-5xl md:text-7xl font-black text-[#ff6361]">49.5%</p><p class="text-xl font-bold mt-2">'안전하게 관리되는' 식수 이용률</p><p class="text-sm text-gray-500 mt-1">(대장균 등 오염물질로부터 안전성이 확보된 물)</p></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+    
+            <section id="pollution-source" class="mb-16">
+                <h2 class="section-title">2. 강의 현주소: 국가 경제 성장의 그림자</h2>
+                 <p class="section-subtitle">태국의 경제 발전을 이끌어온 주요 강들은 현재 생활하수, 산업폐수, 농업활동으로 인해 심각한 몸살을 앓고 있습니다. 태국 오염관리국(PCD)에 따르면, 전체 하천의 18%가 이미 '나쁨' 또는 '매우 나쁨' 등급으로 분류되어 생태계 기능마저 위협받고 있습니다.</p>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="card"><h3 class="text-2xl font-bold text-[#003f5c] mb-4 text-center">하천 수질 등급 현황 (PCD, 2024)</h3><div class="chart-container h-80"><canvas id="riverQualityChart_TH"></canvas></div></div>
+                    <div class="card"><h3 class="text-2xl font-bold text-[#003f5c] mb-4 text-center">주요 오염원 구성 비율</h3><div class="chart-container h-80"><canvas id="pollutionSourceChart_TH"></canvas></div></div>
+                </div>
+            </section>
+    
+            <section id="pollutants-deep-dive" class="mb-16">
+                <h2 class="section-title">3. 주요 오염물질 프로파일 및 심층 분석</h2>
+                <p class="section-subtitle">태국의 수질은 전통적인 유기물 오염부터 최신 신종 오염물질에 이르기까지 복합적인 위협에 직면해 있습니다. 각 오염물질의 현황을 데이터와 그래프를 통해 심층적으로 분석하고, 그 의미와 잠재적 위험성을 진단합니다.</p>
+                <div class="card mb-12">
+                    <h3 class="text-2xl font-bold text-[#58508d] mb-4">3.1 유기물 및 박테리아 오염: 도시화의 명백한 부작용</h3>
+                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                        <div class="lg:col-span-2"><p class="text-gray-700 mb-4">처리되지 않은 생활하수는 태국 하천 오염의 가장 큰 원인입니다. 특히 인구 밀집 지역을 통과하는 하천의 <strong class="text-[#58508d]">생화학적 산소 요구량(BOD)</strong>은 심각한 수준입니다. BOD는 물속 유기물을 미생물이 분해할 때 필요한 산소의 양으로, 수질 오염의 핵심 지표입니다.</p><ul class="list-disc list-inside space-y-2 text-gray-700"><li><strong>짜오프라야강 하류:</strong> BOD가 6.0 mg/L를 초과하여, 태국 지표수 기준 4등급(BOD 4.0 초과)을 훨씬 상회하는 '매우 나쁨' 상태입니다. 이는 하천의 자정능력이 거의 상실되었음을 의미합니다.</li><li><strong>총대장균군:</strong> 인구 밀집 지역에서는 수인성 질병을 유발하는 총대장균군 수치가 안전 기준치의 수백 배에 달하는 경우가 빈번하게 보고됩니다.</li></ul></div>
+                        <div class="lg:col-span-3"><div class="chart-container h-96"><canvas id="bodChart_TH"></canvas></div></div>
+                    </div>
+                </div>
+                <div class="card mb-12">
+                    <h3 class="text-2xl font-bold text-[#bc5090] mb-4">3.2 화학물질 및 신종 오염물질: 보이지 않는 위협</h3>
+                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                        <div class="lg:col-span-3 order-last lg:order-first"><div class="chart-container h-96"><canvas id="pfasChart_TH"></canvas></div></div>
+                        <div class="lg:col-span-2"><p class="text-gray-700 mb-4">농업 및 산업 활동에서 비롯된 화학물질은 수생태계와 인간의 건강을 직접적으로 위협합니다. 특히 '영원한 화학물질'로 불리는 <strong class="text-[#bc5090]">과불화화합물(PFAS)</strong> 오염은 새로운 문제로 대두되고 있습니다.</p><ul class="list-disc list-inside space-y-2 text-gray-700"><li><strong>고위험 농약:</strong> 글리포세이트, 파라콰트 등 제초제 성분이 농경지에서 유출되어 하천 생태계를 교란시키고 있습니다.</li><li><strong>PFAS 검출:</strong> 최근 연구에서 방콕 시판 생수병 중 일부에서 미국 EPA의 권고 기준(4 ppt)을 6배 이상 초과하는 최대 25.8 ppt의 PFAS가 검출되었습니다. 이는 산업 폐기물이 정수 시스템을 통과하여 최종 소비 단계까지 영향을 미치고 있음을 시사하는 충격적인 결과입니다.</li></ul></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 class="text-2xl font-bold text-[#ff6361] mb-4">3.3 중금속 오염: 국경을 넘는 재앙</h3>
+                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                        <div class="lg:col-span-2"><p class="text-gray-700 mb-4">국경 너머의 광산 활동으로 인한 중금속 오염은 태국 북부 지역의 심각한 사회 문제입니다. 특히 인체에 치명적인 <strong class="text-[#ff6361]">비소(Arsenic)</strong> 오염은 국가적 대응을 요구하는 수준입니다.</p><ul class="list-disc list-inside space-y-2 text-gray-700"><li><strong>코크강 및 사이강 사태 (2025):</strong> 미얀마 국경 인근 광산에서 유입된 오염으로 인해 사이강의 비소 농도가 최대 0.49 mg/L까지 치솟았습니다.</li><li><strong>기준치 초과:</strong> 이는 태국 식수 안전 기준(0.010 mg/L)의 무려 <strong class="text-red-600 font-bold">49배</strong>에 달하는 수치로, 해당 지역 주민들의 식수 안전에 대한 극심한 위협을 보여줍니다.</li></ul></div>
+                        <div class="lg:col-span-3"><div class="chart-container h-96"><canvas id="arsenicPollutionChartEnhanced_TH"></canvas></div></div>
+                    </div>
+                </div>
+            </section>
+    
+            <section id="case-study" class="mb-16">
+                 <div class="card">
+                    <h2 class="text-2xl md:text-3xl font-bold text-center text-[#003f5c] mb-6">긴급 이슈: 코크강·사이강 비소 오염 사태 (2025)</h2>
+                    <p class="text-center text-gray-700 mb-8 max-w-3xl mx-auto">태국 북부 치앙라이 지역의 주요 강에서 인체에 치명적인 수준의 비소와 납이 검출되어 국가적인 문제로 대두되었습니다. 이는 미얀마 국경 너머의 비공식 광산 활동에서 비롯된 '국경 간 오염(Transboundary Pollution)' 문제로, 태국 정부의 다각적인 대응을 촉발시켰습니다.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                        <div>
+                            <h3 class="text-xl font-bold text-[#ff6361] mb-4">정부의 다각적 대응 전략</h3>
+                            <ul class="space-y-3 list-disc list-inside text-gray-700"><li><strong class="font-semibold">외교적 해결:</strong> 미얀마, 중국과 외교 채널 및 상부 메콩강 수자원 그룹을 통해 협상 진행</li><li><strong class="font-semibold">기술적 조치:</strong> 위성(GISTDA)으로 오염원 추적, 침전지(Sediment Traps) 설치 및 3km 구간 준설 작업</li><li><strong class="font-semibold">주민 건강 보호:</strong> 주민 대상 비소 노출 검사 및 12개월 이상 장기 건강 데이터베이스 구축 계획</li><li><strong class="font-semibold">투명한 정보 공개:</strong> 공중보건 경고 시스템을 활성화하고 주민들에게 관련 정보를 지속적으로 제공</li></ul>
+                        </div>
+                        <div class="bg-gray-50 p-4 rounded-lg"><table class="w-full text-sm text-left text-gray-500"><thead class="text-xs text-gray-700 uppercase bg-gray-100"><tr><th scope="col" class="px-6 py-3">지점</th><th scope="col" class="px-6 py-3">최대 비소 농도</th><th scope="col" class="px-6 py-3">기준치 대비</th></tr></thead><tbody><tr class="bg-white border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">사이강 (Sai River)</th><td class="px-6 py-4 font-bold text-red-600">0.49 mg/L</td><td class="px-6 py-4 font-bold text-red-600">49배 초과</td></tr><tr class="bg-white border-b"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">코크강 (Kok River)</th><td class="px-6 py-4">0.023 mg/L</td><td class="px-6 py-4">2.3배 초과</td></tr><tr class="bg-white"><th scope="row" class="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">안전 기준 (WHO/Thai)</th><td class="px-6 py-4 font-bold text-green-600">0.010 mg/L</td><td class="px-6 py-4 font-bold text-green-600">기준</td></tr></tbody></table></div>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="cities" class="mb-16">
+                <h2 class="section-title">4. 주요 도시 및 지역별 수질 문제</h2>
+                 <p class="section-subtitle">태국의 각 지역은 저마다 다른 수질 문제와 씨름하고 있습니다.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="card"><h3 class="text-lg font-bold text-[#003f5c]">방콕 (짜오프라야 유역)</h3><p class="font-semibold text-red-500 mt-1">도시 과밀 오염</p><p class="text-sm text-gray-600 mt-2">1천만 명 이상 인구의 생활하수가 강의 산소를 고갈시키고, 건기에는 바닷물 역류로 염분 피해까지 발생합니다.</p></div>
+                    <div class="card"><h3 class="text-lg font-bold text-[#003f5c]">치앙마이 (핑 강 유역)</h3><p class="font-semibold text-orange-500 mt-1">관광 및 농업 오염</p><p class="text-sm text-gray-600 mt-2">관광객 증가로 인한 하수 문제와 상류 고산지대 농업 오염이 복합적으로 작용합니다.</p></div>
+                     <div class="card"><h3 class="text-lg font-bold text-[#003f5c]">동부 해안 (라용 등)</h3><p class="font-semibold text-purple-500 mt-1">산업단지 오염</p><p class="text-sm text-gray-600 mt-2">중화학 및 석유화학 공장 밀집 지역으로, 산업 폐수로 인한 중금속 및 화학물질 오염 위험이 상존합니다.</p></div>
+                    <div class="card"><h3 class="text-lg font-bold text-[#003f5c]">북동부 (이산) 지역</h3><p class="font-semibold text-teal-500 mt-1">지하수 오염</p><p class="text-sm text-gray-600 mt-2">상대적으로 건조한 이 지역은 지하수 의존도가 높으나, 일부 지역에서 자연 발생적인 비소(As) 오염이 보고됩니다.</p></div>
+                </div>
+            </section>
+    
+            <footer class="mt-12 bg-[#003f5c] text-white rounded-lg shadow-xl p-8">
+                 <h2 class="text-3xl font-bold text-center text-white mb-4">결론: 지속가능한 수자원 관리를 위한 정책 제언</h2>
+                 <p class="text-center text-gray-300 max-w-3xl mx-auto mb-6">국경을 넘나드는 오염 문제와 복합적인 내부 오염원을 효과적으로 관리하기 위해, 태국은 유역 기반의 통합 관리, 첨단 기술 도입, 그리고 국제 사회와의 긴밀한 협력을 포함한 강력하고 체계적인 정책 집행이 요구됩니다.</p>
+                 <div class="max-w-4xl mx-auto bg-white/10 p-4 rounded-lg"><div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center"><div class="p-4"><h4 class="font-bold text-lg text-[#ffa600]">국제 협력 및 외교</h4><p class="text-gray-200 text-sm">국경 오염 문제 해결을 위한 인접국과의 공동 대응 및 법적 책임 규명 강화</p></div><div class="p-4"><h4 class="font-bold text-lg text-[#ff6361]">기술 기반 관리</h4><p class="text-gray-200 text-sm">위성, 실시간 센서망을 활용한 오염원 추적 및 상시 감시 시스템 고도화</p></div><div class="p-4"><h4 class="font-bold text-lg text-[#bc5090]">통합 유역 관리</h4><p class="text-gray-200 text-sm">이해관계자 참여 기반의 유역 단위 통합 관리 시스템 구축 및 총량 관리제 도입</p></div></div></div>
+            </footer>
+    
+            <div class="text-center text-xs text-gray-500 mt-8"><p class="font-bold mb-2">참고문헌 (References)</p><p class="leading-relaxed max-w-4xl mx-auto">본 보고서는 WHO/UNICEF JMP, 태국 오염관리국(PCD), Nation Thailand, 태국 국가인권위원회(NHRC), Khaosod English, US EPA, 관련 학술 연구 등 공신력 있는 자료를 기반으로 제작되었습니다.</p></div>
+        </div>
+        <script>
+            (function createThailandCharts() {
+                const PALETTE = { darkBlue: '#003f5c', purple: '#58508d', magenta: '#bc5090', red: '#ff6361', orange: '#ffa600', lightGray: '#e2e8f0', text: '#1f2937', green: '#10B981' };
+                const defaultTooltipOptions = { plugins: { tooltip: { backgroundColor: '#fff', titleColor: PALETTE.text, bodyColor: PALETTE.text, borderColor: PALETTE.lightGray, borderWidth: 1, padding: 10, callbacks: { title: function(tooltipItems) { const item = tooltipItems[0]; let label = item.chart.data.labels[item.dataIndex]; return Array.isArray(label) ? label.join(' ') : label; } } } } };
+                const defaultChartOptions = { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: PALETTE.lightGray }, ticks: { color: PALETTE.text, font: { size: 12 } } }, x: { grid: { display: false }, ticks: { color: PALETTE.text, font: { size: 12 } } } }, plugins: { legend: { display: false }, title: { display: true, color: PALETTE.text, font: { size: 16, weight: 'bold' } } } };
+                
+                const accessGapCtx = document.getElementById('accessGapChart_TH')?.getContext('2d');
+                if(accessGapCtx) new Chart(accessGapCtx, { type: 'bar', data: { labels: ['도시 지역', '농촌 지역'], datasets: [{ label: '안전한 식수 접근률 (%)', data: [64.5, 36.9], backgroundColor: [PALETTE.purple, PALETTE.magenta], borderRadius: 5, barPercentage: 0.6 }] }, options: { ...defaultChartOptions, plugins: { ...defaultChartOptions.plugins, title: { ...defaultChartOptions.plugins.title, text: '도시-농촌 간 안전한 식수 접근률 격차 (%)' } } } });
+                const riverQualityCtx = document.getElementById('riverQualityChart_TH')?.getContext('2d');
+                if(riverQualityCtx) new Chart(riverQualityCtx, { type: 'doughnut', data: { labels: ['매우 좋음/좋음', '보통', '나쁨/매우 나쁨'], datasets: [{ data: [36, 46, 18], backgroundColor: [PALETTE.darkBlue, PALETTE.orange, PALETTE.red], borderColor: '#ffffff', borderWidth: 4, }] }, options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { ...defaultTooltipOptions.plugins, legend: { position: 'bottom', labels: { color: PALETTE.text, font: { size: 14 } } } } } });
+                const pollutionSourceCtx = document.getElementById('pollutionSourceChart_TH')?.getContext('2d');
+                if(pollutionSourceCtx) new Chart(pollutionSourceCtx, { type: 'pie', data: { labels: ['생활하수 (70%)', '산업 폐수 (20%)', '농업 오염 (10%)'], datasets: [{ data: [70, 20, 10], backgroundColor: [PALETTE.red, PALETTE.purple, PALETTE.orange], borderColor: '#ffffff', borderWidth: 4, }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { ...defaultTooltipOptions.plugins, legend: { position: 'bottom', labels: { color: PALETTE.text, font: { size: 14 } } } } } });
+                const bodCtx = document.getElementById('bodChart_TH')?.getContext('2d');
+                if(bodCtx) new Chart(bodCtx, { type: 'bar', data: { labels: ['짜오프라야 하류', '타친강', '매끌롱강', '메콩강 (태국)'], datasets: [{ label: 'BOD 농도 (mg/L)', data: [6.2, 4.5, 2.1, 1.8], backgroundColor: [PALETTE.red, PALETTE.orange, PALETTE.darkBlue, PALETTE.purple], borderRadius: 5, }, { type: 'line', label: '지표수 3등급 기준', data: [2.0, 2.0, 2.0, 2.0], borderColor: PALETTE.green, borderWidth: 2, pointRadius: 0, borderDash: [5, 5], fill: false }] }, options: { ...defaultChartOptions, indexAxis: 'y', scales: { x: { beginAtZero: true, title: { display: true, text: 'BOD 농도 (mg/L)', color: PALETTE.text }, grid: { color: PALETTE.lightGray }, ticks: { color: PALETTE.text } }, y: { grid: { display: false }, ticks: { color: PALETTE.text } } }, plugins: { ...defaultChartOptions.plugins, title: { ...defaultChartOptions.plugins.title, text: '주요 하천별 생화학적 산소 요구량(BOD) 비교' }, legend: { display: true, position: 'bottom' }, tooltip: { ...defaultTooltipOptions.plugins.tooltip } } } });
+                const pfasCtx = document.getElementById('pfasChart_TH')?.getContext('2d');
+                if(pfasCtx) new Chart(pfasCtx, { type: 'bar', data: { labels: ['방콕 시판 생수 (최대치)', '미국 EPA 권고 기준'], datasets: [{ label: 'PFAS 농도 (ppt)', data: [25.8, 4.0], backgroundColor: [PALETTE.magenta, PALETTE.darkBlue], barPercentage: 0.5, borderRadius: 5, }] }, options: { ...defaultChartOptions, scales: { y: { title: { display: true, text: '농도 (ppt, parts per trillion)', color: PALETTE.text }, grid: { color: PALETTE.lightGray }, ticks: { color: PALETTE.text } }, x: { grid: { display: false }, ticks: { color: PALETTE.text } } }, plugins: { ...defaultChartOptions.plugins, title: { ...defaultChartOptions.plugins.title, text: '시판 생수 내 과불화화합물(PFAS) 검출 수준' }, tooltip: { ...defaultTooltipOptions.plugins.tooltip } } } });
+                const arsenicCtx = document.getElementById('arsenicPollutionChartEnhanced_TH')?.getContext('2d');
+                if(arsenicCtx) new Chart(arsenicCtx, { type: 'bar', data: { labels: ['사이강 최대치', '코크강 최대치'], datasets: [{ label: '비소(As) 농도 (mg/L)', data: [0.49, 0.023], backgroundColor: [PALETTE.red, PALETTE.orange], borderColor: [PALETTE.red, PALETTE.orange], borderWidth: 1, borderRadius: 5, }, { type: 'line', label: '안전 기준', data: [0.010, 0.010], borderColor: PALETTE.darkBlue, borderWidth: 3, pointRadius: 0, fill: false }] }, options: { ...defaultChartOptions, scales: { y: { type: 'logarithmic', title: { display: true, text: '농도 (mg/L, 로그 스케일)', color: PALETTE.text }, ticks: { color: PALETTE.text }, grid: { color: PALETTE.lightGray } }, x: { grid: { display: false }, ticks: { color: PALETTE.text } } }, plugins: { ...defaultChartOptions.plugins, legend: { display: true, position: 'bottom' }, title: { ...defaultChartOptions.plugins.title, text: '북부 하천 비소(As) 오염 수준 (vs. 안전 기준)' }, tooltip: { ...defaultTooltipOptions.plugins.tooltip } } } });
+            })();
+        </script>
+    </template>
+
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const homeButton = document.getElementById('homeButton');
+            const headerTitle = document.getElementById('header-title');
+            const headerSubtitle = document.getElementById('header-subtitle');
+
+            const views = {
+                dashboard: document.getElementById('global-dashboard-view'),
+                malaysia: document.getElementById('malaysia-view'),
+                indonesia: document.getElementById('indonesia-view'),
+                vietnam: document.getElementById('vietnam-view'),
+                usa: document.getElementById('usa-view'),
+                thailand: document.getElementById('thailand-view')
+            };
+
+            const cards = {
+                malaysia: document.getElementById('card-malaysia'),
+                indonesia: document.getElementById('card-indonesia'),
+                vietnam: document.getElementById('card-vietnam'),
+                usa: document.getElementById('card-usa'),
+                thailand: document.getElementById('card-thailand')
+            };
+
+            const templates = {
+                malaysia: document.querySelector('#malaysia-template'),
+                indonesia: document.querySelector('#indonesia-template'),
+                vietnam: document.querySelector('#vietnam-template'),
+                usa: document.querySelector('#usa-template'),
+                thailand: document.querySelector('#thailand-template')
+            };
+            
+            const countryNames = {
+                malaysia: '말레이시아',
+                indonesia: '인도네시아',
+                vietnam: '베트남',
+                usa: '미국',
+                thailand: '태국'
+            };
+
+            function showView(viewId) {
+                Object.values(views).forEach(view => view.classList.add('hidden'));
+                if (views[viewId]) {
+                    views[viewId].classList.remove('hidden');
+                }
+
+                if (viewId === 'dashboard') {
+                    homeButton.classList.add('hidden');
+                    headerTitle.textContent = "해외 5개국 수질 통합 대시보드";
+                    headerSubtitle.textContent = "법인 보유국 수질 데이터 통합 관리 및 비교 분석";
+                } else {
+                    homeButton.classList.remove('hidden');
+                    headerTitle.textContent = `${countryNames[viewId]} 수질 현황 보고서`;
+                    headerSubtitle.textContent = `데이터 기반 심층 분석 자료`;
+                }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
+            function executeScript(element) {
+                const scripts = element.querySelectorAll('script');
+                scripts.forEach(script => {
+                    const newScript = document.createElement('script');
+                    newScript.textContent = script.textContent;
+                    // 차트 ID가 중복될 수 있으므로, 해당 국가 뷰가 활성화될 때만 차트를 그리도록 유도
+                    document.body.appendChild(newScript).parentNode.removeChild(newScript);
+                });
+            }
+
+            Object.keys(cards).forEach(country => {
+                if (cards[country]) {
+                    cards[country].addEventListener('click', () => {
+                        const view = views[country];
+                        if (view.innerHTML.trim() === '') {
+                            const template = templates[country];
+                            if(template && template.innerHTML.trim() !== '') {
+                                view.innerHTML = template.innerHTML;
+                                // 약간의 딜레이를 주어 DOM이 렌더링될 시간을 확보
+                                setTimeout(() => executeScript(view), 50);
+                            }
+                        }
+                        showView(country);
+                    });
+                }
+            });
+
+            homeButton.addEventListener('click', () => showView('dashboard'));
+            
+            showView('dashboard');
+        });
+    </script>
+</body>
+</html>
